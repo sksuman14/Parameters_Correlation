@@ -3,7 +3,6 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -130,6 +129,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
   // Zoom and pan state
   double zoomLevel = 1.0;
   double panOffset = 0.0;
+  double baseScale = 1.0;
   final double minZoom = 1.0;
   final double maxZoom = 10.0;
 
@@ -169,6 +169,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
       // Reset zoom when fetching new data
       zoomLevel = 1.0;
       panOffset = 0.0;
+      baseScale = 1.0;
     });
 
     try {
@@ -214,6 +215,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     setState(() {
       zoomLevel = 1.0;
       panOffset = 0.0;
+      baseScale = 1.0;
     });
   }
 
@@ -226,7 +228,10 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
         actions: [
-          if (!loading && dataA.isNotEmpty && dataB.isNotEmpty)
+          if (!loading &&
+              dataA.isNotEmpty &&
+              dataB.isNotEmpty &&
+              zoomLevel > 1.0)
             IconButton(
               icon: const Icon(Icons.zoom_out_map),
               tooltip: 'Reset Zoom',
@@ -250,35 +255,16 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
             if (error != null)
               Text(error!, style: const TextStyle(color: Colors.red)),
             if (!loading && dataA.isNotEmpty && dataB.isNotEmpty) ...[
-              // _buildZoomInfo(),
               const SizedBox(height: 8),
               SizedBox(height: 350, child: _buildChart()),
+              const SizedBox(height: 16),
+              _buildLegend(),
             ],
           ],
         ),
       ),
     );
   }
-
-  // Widget _buildZoomInfo() {
-  //   return Card(
-  //     color: Colors.blue.shade50,
-  //     child: const Padding(
-  //       padding: EdgeInsets.all(8.0),
-  //       child: Row(
-  //         mainAxisAlignment: MainAxisAlignment.center,
-  //         children: [
-  //           Icon(Icons.info_outline, size: 16, color: Colors.blue),
-  //           SizedBox(width: 8),
-  //           // Text(
-  //           //   'Zoom: ${zoomLevel.toStringAsFixed(1)}x | Mobile: Pinch | Desktop: Shift + Scroll',
-  //           //   style: const TextStyle(fontSize: 12, color: Colors.blue),
-  //           // ),
-  //         ],
-  //       ),
-  //     ),
-  //   );
-  // }
 
   Widget _buildInputs() {
     return Card(
@@ -358,6 +344,37 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     );
   }
 
+  Widget _buildLegend() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _buildLegendItem('Device ${deviceAId ?? "A"}', Colors.blue),
+        const SizedBox(width: 24),
+        _buildLegendItem('Device ${deviceBId ?? "B"}', Colors.orange),
+      ],
+    );
+  }
+
+  Widget _buildLegendItem(String label, Color color) {
+    return Row(
+      children: [
+        Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12),
+        ),
+      ],
+    );
+  }
+
   Widget _buildChart() {
     final spotsA = <FlSpot>[];
     final spotsB = <FlSpot>[];
@@ -381,12 +398,46 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     final minX = clampedPanOffset;
     final maxX = min(clampedPanOffset + visibleRange, length.toDouble());
 
-    return Listener(
-      onPointerSignal: (pointerSignal) {
-        if (pointerSignal is PointerScrollEvent) {
-          // Check if Shift key is pressed
-          if (RawKeyboard.instance.keysPressed.any((key) =>
-              key.keyLabel == 'Shift Left' || key.keyLabel == 'Shift Right')) {
+    return RawGestureDetector(
+      gestures: {
+        _PanZoomGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<_PanZoomGestureRecognizer>(
+          () => _PanZoomGestureRecognizer(),
+          (_PanZoomGestureRecognizer instance) {
+            instance
+              ..onStart = (details) {
+                baseScale = zoomLevel;
+              }
+              ..onUpdate = (details) {
+                // Handle zoom (pinch gesture)
+                if (details.scale != 1.0) {
+                  final newZoom = baseScale * details.scale;
+                  setState(() {
+                    zoomLevel = newZoom.clamp(minZoom, maxZoom);
+                  });
+                }
+
+                // Handle pan (horizontal drag)
+                if (details.focalPointDelta.dx.abs() > 0.1) {
+                  final panSensitivity = length / (400 * zoomLevel);
+                  final newPan =
+                      (panOffset - details.focalPointDelta.dx * panSensitivity)
+                          .clamp(0.0, max(0.0, length - (length / zoomLevel)))
+                          .toDouble();
+                  setState(() {
+                    panOffset = newPan;
+                  });
+                }
+              }
+              ..onEnd = (details) {
+                baseScale = zoomLevel;
+              };
+          },
+        ),
+      },
+      child: Listener(
+        onPointerSignal: (pointerSignal) {
+          if (pointerSignal is PointerScrollEvent) {
             final delta = pointerSignal.scrollDelta.dy;
             setState(() {
               if (delta < 0) {
@@ -398,28 +449,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
               }
             });
           }
-        }
-      },
-      child: GestureDetector(
-        onScaleStart: (details) {
-          // Store initial values for pinch gesture
-        },
-        onScaleUpdate: (details) {
-          setState(() {
-            // Handle pinch zoom
-            if (details.scale != 1.0) {
-              final newZoom = zoomLevel * details.scale;
-              zoomLevel = newZoom.clamp(minZoom, maxZoom);
-            }
-
-            // Handle pan (horizontal drag)
-            if (details.focalPointDelta.dx != 0) {
-              final panSensitivity = length / (400 * zoomLevel);
-              panOffset -= details.focalPointDelta.dx * panSensitivity;
-              panOffset =
-                  panOffset.clamp(0.0, max(0.0, length - (length / zoomLevel)));
-            }
-          });
         },
         child: LineChart(
           LineChartData(
@@ -491,14 +520,18 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
                 isCurved: true,
                 color: Colors.blue,
                 barWidth: 3,
+                isStrokeCapRound: true,
                 dotData: FlDotData(show: zoomLevel > 3),
+                belowBarData: BarAreaData(show: false),
               ),
               LineChartBarData(
                 spots: spotsB,
                 isCurved: true,
                 color: Colors.orange,
                 barWidth: 3,
+                isStrokeCapRound: true,
                 dotData: FlDotData(show: zoomLevel > 3),
+                belowBarData: BarAreaData(show: false),
               ),
             ],
             lineTouchData: LineTouchData(
@@ -550,5 +583,15 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     deviceAController.dispose();
     deviceBController.dispose();
     super.dispose();
+  }
+}
+
+/// =======================
+/// CUSTOM GESTURE RECOGNIZER
+/// =======================
+class _PanZoomGestureRecognizer extends ScaleGestureRecognizer {
+  @override
+  void rejectGesture(int pointer) {
+    acceptGesture(pointer);
   }
 }
