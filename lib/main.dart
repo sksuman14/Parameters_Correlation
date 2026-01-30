@@ -97,17 +97,13 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
   final Map<String, double> zoomLevels = {};
   final Map<String, double> panOffsets = {};
 
+  // Track initial scale for each chart
+  final Map<String, double> baseScales = {};
+
   @override
   void initState() {
     super.initState();
     fetchData();
-  }
-
-  void resetAllZooms() {
-    setState(() {
-      zoomLevels.clear();
-      panOffsets.clear();
-    });
   }
 
   Future<void> fetchData() async {
@@ -117,6 +113,7 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
       // Reset all zooms when fetching new data
       zoomLevels.clear();
       panOffsets.clear();
+      baseScales.clear();
     });
 
     try {
@@ -187,19 +184,6 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
                       );
                     },
                   ),
-                  const SizedBox(width: 12),
-                  if (weatherData.isNotEmpty && !isLoading)
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.zoom_out_map),
-                      label: const Text('Reset All Zooms'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 14),
-                      ),
-                      onPressed: resetAllZooms,
-                    ),
                 ],
               ),
 
@@ -447,6 +431,7 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
     // Initialize zoom and pan for this chart if not exists
     zoomLevels.putIfAbsent(chartId, () => 1.0);
     panOffsets.putIfAbsent(chartId, () => 0.0);
+    baseScales.putIfAbsent(chartId, () => 1.0);
 
     final currentZoom = zoomLevels[chartId]!;
     final currentPan = panOffsets[chartId]!;
@@ -540,39 +525,18 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
                     setState(() {
                       zoomLevels[chartId] = 1.0;
                       panOffsets[chartId] = 0.0;
+                      baseScales[chartId] = 1.0;
                     });
                   },
                 ),
             ],
           ),
-          // const SizedBox(height: 8),
-          // Container(
-          //   padding: const EdgeInsets.all(8),
-          //   decoration: BoxDecoration(
-          //     color: Colors.blue.shade50,
-          //     borderRadius: BorderRadius.circular(6),
-          //   ),
-          // child: const Row(
-          //   children: [
-          //     Icon(Icons.info_outline, size: 14, color: Colors.blue),
-          //     SizedBox(width: 6),
-          //     // Expanded(
-          //     // child: Text(
-          //     //   'Zoom: ${currentZoom.toStringAsFixed(1)}x | Mobile: Pinch to zoom, drag to pan | Desktop: Shift + Scroll to zoom',
-          //     //   style: const TextStyle(fontSize: 11, color: Colors.blue),
-          //     // ),
-          //     // ),
-          //   ],
-          // ),
-          // ),
           const SizedBox(height: 20),
           SizedBox(
             height: 300,
             child: Listener(
               onPointerSignal: (pointerSignal) {
                 if (pointerSignal is PointerScrollEvent) {
-                  // Simple scroll detection - you can enhance this with shift key detection
-                  // For now, we'll use scroll for zoom (you can add shift key check if needed)
                   final delta = pointerSignal.scrollDelta.dy;
                   setState(() {
                     if (delta < 0) {
@@ -589,18 +553,18 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
               },
               child: GestureDetector(
                 onScaleStart: (details) {
-                  // Store initial values for pinch gesture
+                  // Store the current zoom as the base for this gesture
+                  baseScales[chartId] = zoomLevels[chartId]!;
                 },
                 onScaleUpdate: (details) {
                   setState(() {
-                    // Handle pinch zoom
-                    if (details.scale != 1.0) {
-                      final newZoom = currentZoom * details.scale;
-                      zoomLevels[chartId] = newZoom.clamp(1.0, 10.0);
-                    }
+                    // Handle pinch zoom - multiply base scale by gesture scale
+                    final newZoom = baseScales[chartId]! * details.scale;
+                    zoomLevels[chartId] = newZoom.clamp(1.0, 10.0);
 
-                    // Handle pan (horizontal drag)
-                    if (details.focalPointDelta.dx != 0) {
+                    // Handle pan (horizontal drag) - only when not actively scaling
+                    if ((details.scale - 1.0).abs() < 0.01 &&
+                        details.focalPointDelta.dx != 0) {
                       final panSensitivity =
                           dataLength / (400 * zoomLevels[chartId]!);
                       panOffsets[chartId] = (currentPan -
@@ -608,6 +572,10 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
                           .clamp(0.0, maxPanOffset);
                     }
                   });
+                },
+                onScaleEnd: (details) {
+                  // Update base scale to current zoom for next gesture
+                  baseScales[chartId] = zoomLevels[chartId]!;
                 },
                 child: LineChart(
                   LineChartData(
