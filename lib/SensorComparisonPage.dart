@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -125,6 +127,12 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
   bool loading = false;
   String? error;
 
+  // Zoom and pan state
+  double zoomLevel = 1.0;
+  double panOffset = 0.0;
+  final double minZoom = 1.0;
+  final double maxZoom = 10.0;
+
   Future<void> pickDate(bool isStart) async {
     final picked = await showDatePicker(
       context: context,
@@ -158,6 +166,9 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
       deviceBId = deviceB;
       loading = true;
       error = null;
+      // Reset zoom when fetching new data
+      zoomLevel = 1.0;
+      panOffset = 0.0;
     });
 
     try {
@@ -199,6 +210,13 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     }
   }
 
+  void resetZoom() {
+    setState(() {
+      zoomLevel = 1.0;
+      panOffset = 0.0;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -207,6 +225,14 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
         title: const Text('Sensor Comparison'),
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
+        actions: [
+          if (!loading && dataA.isNotEmpty && dataB.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.zoom_out_map),
+              tooltip: 'Reset Zoom',
+              onPressed: resetZoom,
+            ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -215,6 +241,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
             _buildInputs(),
             const SizedBox(height: 16),
             ElevatedButton.icon(
+              icon: const Icon(Icons.compare_arrows),
               label: const Text('Compare'),
               onPressed: loading ? null : fetchComparisonData,
             ),
@@ -222,13 +249,36 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
             if (loading) const CircularProgressIndicator(),
             if (error != null)
               Text(error!, style: const TextStyle(color: Colors.red)),
-            if (!loading && dataA.isNotEmpty && dataB.isNotEmpty)
+            if (!loading && dataA.isNotEmpty && dataB.isNotEmpty) ...[
+              // _buildZoomInfo(),
+              const SizedBox(height: 8),
               SizedBox(height: 350, child: _buildChart()),
+            ],
           ],
         ),
       ),
     );
   }
+
+  // Widget _buildZoomInfo() {
+  //   return Card(
+  //     color: Colors.blue.shade50,
+  //     child: const Padding(
+  //       padding: EdgeInsets.all(8.0),
+  //       child: Row(
+  //         mainAxisAlignment: MainAxisAlignment.center,
+  //         children: [
+  //           Icon(Icons.info_outline, size: 16, color: Colors.blue),
+  //           SizedBox(width: 8),
+  //           // Text(
+  //           //   'Zoom: ${zoomLevel.toStringAsFixed(1)}x | Mobile: Pinch | Desktop: Shift + Scroll',
+  //           //   style: const TextStyle(fontSize: 12, color: Colors.blue),
+  //           // ),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
 
   Widget _buildInputs() {
     return Card(
@@ -323,122 +373,172 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
       );
     }
 
-    return LineChart(
-      LineChartData(
-        minX: 0,
-        maxX: (length - 1).toDouble(),
-        gridData: FlGridData(
-          show: true,
-          getDrawingHorizontalLine: (value) =>
-              FlLine(color: Colors.grey.shade200, strokeWidth: 1),
-          getDrawingVerticalLine: (value) =>
-              FlLine(color: Colors.grey.shade200, strokeWidth: 1),
-        ),
-        borderData: FlBorderData(
-          show: true,
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        titlesData: FlTitlesData(
-          topTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          leftTitles: AxisTitles(
-            axisNameWidget: Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Text(
-                parameterLabel(selectedParameter),
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+    // Calculate visible range based on zoom and pan
+    final visibleRange = length / zoomLevel;
+    final maxPanOffset = max(0.0, length - visibleRange);
+    final clampedPanOffset = panOffset.clamp(0.0, maxPanOffset);
+
+    final minX = clampedPanOffset;
+    final maxX = min(clampedPanOffset + visibleRange, length.toDouble());
+
+    return Listener(
+      onPointerSignal: (pointerSignal) {
+        if (pointerSignal is PointerScrollEvent) {
+          // Check if Shift key is pressed
+          if (RawKeyboard.instance.keysPressed.any((key) =>
+              key.keyLabel == 'Shift Left' || key.keyLabel == 'Shift Right')) {
+            final delta = pointerSignal.scrollDelta.dy;
+            setState(() {
+              if (delta < 0) {
+                // Zoom in
+                zoomLevel = min(maxZoom, zoomLevel * 1.1);
+              } else {
+                // Zoom out
+                zoomLevel = max(minZoom, zoomLevel / 1.1);
+              }
+            });
+          }
+        }
+      },
+      child: GestureDetector(
+        onScaleStart: (details) {
+          // Store initial values for pinch gesture
+        },
+        onScaleUpdate: (details) {
+          setState(() {
+            // Handle pinch zoom
+            if (details.scale != 1.0) {
+              final newZoom = zoomLevel * details.scale;
+              zoomLevel = newZoom.clamp(minZoom, maxZoom);
+            }
+
+            // Handle pan (horizontal drag)
+            if (details.focalPointDelta.dx != 0) {
+              final panSensitivity = length / (400 * zoomLevel);
+              panOffset -= details.focalPointDelta.dx * panSensitivity;
+              panOffset =
+                  panOffset.clamp(0.0, max(0.0, length - (length / zoomLevel)));
+            }
+          });
+        },
+        child: LineChart(
+          LineChartData(
+            minX: minX,
+            maxX: maxX,
+            gridData: FlGridData(
+              show: true,
+              getDrawingHorizontalLine: (value) =>
+                  FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+              getDrawingVerticalLine: (value) =>
+                  FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+            ),
+            borderData: FlBorderData(
+              show: true,
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            titlesData: FlTitlesData(
+              topTitles: const AxisTitles(
+                sideTitles: SideTitles(showTitles: false),
+              ),
+              leftTitles: AxisTitles(
+                axisNameWidget: Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Text(
+                    parameterLabel(selectedParameter),
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 48,
+                  getTitlesWidget: (value, meta) {
+                    return Text(
+                      value.toStringAsFixed(1),
+                      style: const TextStyle(fontSize: 10),
+                    );
+                  },
+                ),
+              ),
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 30,
+                  interval: max(1, (visibleRange / 10).ceilToDouble()),
+                  getTitlesWidget: (value, meta) {
+                    final index = value.toInt();
+                    if (index >= 0 && index < dataA.length) {
+                      final time =
+                          DateFormat('HH:mm').format(dataA[index].timeStamp);
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          time,
+                          style: const TextStyle(fontSize: 10),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
                 ),
               ),
             ),
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 48,
-              getTitlesWidget: (value, meta) {
-                return Text(
-                  value.toStringAsFixed(1),
-                  style: const TextStyle(fontSize: 10),
-                );
-              },
+            lineBarsData: [
+              LineChartBarData(
+                spots: spotsA,
+                isCurved: true,
+                color: Colors.blue,
+                barWidth: 3,
+                dotData: FlDotData(show: zoomLevel > 3),
+              ),
+              LineChartBarData(
+                spots: spotsB,
+                isCurved: true,
+                color: Colors.orange,
+                barWidth: 3,
+                dotData: FlDotData(show: zoomLevel > 3),
+              ),
+            ],
+            lineTouchData: LineTouchData(
+              touchTooltipData: LineTouchTooltipData(
+                getTooltipItems: (touchedSpots) {
+                  return touchedSpots.map((spot) {
+                    final index = spot.x.toInt();
+                    if (index < 0 || index >= dataA.length) return null;
+
+                    final timestamp = DateFormat('dd-MM-yyyy HH:mm')
+                        .format(dataA[index].timeStamp);
+
+                    final valueA =
+                        getParameterValue(dataA[index], selectedParameter);
+                    final valueB =
+                        getParameterValue(dataB[index], selectedParameter);
+
+                    if (spot.barIndex == 0) {
+                      return LineTooltipItem(
+                        '$timestamp\nDevice ${deviceAId ?? "A"}: ${valueA.toStringAsFixed(1)}',
+                        const TextStyle(
+                          color: Colors.blue,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      );
+                    } else {
+                      return LineTooltipItem(
+                        '$timestamp\nDevice ${deviceBId ?? "B"}: ${valueB.toStringAsFixed(1)}',
+                        const TextStyle(
+                          color: Colors.orange,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      );
+                    }
+                  }).toList();
+                },
+              ),
             ),
-          ),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 30,
-              interval: length > 20 ? (length / 10).ceilToDouble() : 1,
-              getTitlesWidget: (value, meta) {
-                final index = value.toInt();
-                if (index >= 0 && index < dataA.length) {
-                  final time =
-                      DateFormat('HH:mm').format(dataA[index].timeStamp);
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      time,
-                      style: const TextStyle(fontSize: 10),
-                    ),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-            ),
-          ),
-        ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: spotsA,
-            isCurved: true,
-            color: Colors.blue,
-            barWidth: 3,
-            dotData: const FlDotData(show: true),
-          ),
-          LineChartBarData(
-            spots: spotsB,
-            isCurved: true,
-            color: Colors.orange,
-            barWidth: 3,
-            dotData: const FlDotData(show: true),
-          ),
-        ],
-        lineTouchData: LineTouchData(
-          touchTooltipData: LineTouchTooltipData(
-            getTooltipItems: (touchedSpots) {
-              return touchedSpots.map((spot) {
-                final index = spot.x.toInt();
-                if (index < 0 || index >= dataA.length) return null;
-
-                final timestamp = DateFormat('dd-MM-yyyy HH:mm')
-                    .format(dataA[index].timeStamp);
-
-                final valueA =
-                    getParameterValue(dataA[index], selectedParameter);
-                final valueB =
-                    getParameterValue(dataB[index], selectedParameter);
-
-                if (spot.barIndex == 0) {
-                  return LineTooltipItem(
-                    '$timestamp\nDevice ${deviceAId ?? "A"}: ${valueA.toStringAsFixed(1)}',
-                    const TextStyle(
-                      color: Colors.blue,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  );
-                } else {
-                  return LineTooltipItem(
-                    '$timestamp\nDevice ${deviceBId ?? "B"}: ${valueB.toStringAsFixed(1)}',
-                    const TextStyle(
-                      color: Colors.orange,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  );
-                }
-              }).toList();
-            },
           ),
         ),
       ),

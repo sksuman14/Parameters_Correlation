@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:fl_chart/fl_chart.dart';
@@ -92,16 +93,30 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
   final TextEditingController endDateController =
       TextEditingController(text: '29-01-2026');
 
+  // Zoom states for each chart
+  final Map<String, double> zoomLevels = {};
+  final Map<String, double> panOffsets = {};
+
   @override
   void initState() {
     super.initState();
     fetchData();
   }
 
+  void resetAllZooms() {
+    setState(() {
+      zoomLevels.clear();
+      panOffsets.clear();
+    });
+  }
+
   Future<void> fetchData() async {
     setState(() {
       isLoading = true;
       errorMessage = null;
+      // Reset all zooms when fetching new data
+      zoomLevels.clear();
+      panOffsets.clear();
     });
 
     try {
@@ -152,23 +167,40 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
               // Date Controls
               _buildDateControls(),
               const SizedBox(height: 20),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.compare_arrows),
-                label: const Text('Compare Sensors'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
-                  foregroundColor: Colors.white,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const SensorComparisonPage(),
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.compare_arrows),
+                    label: const Text('Compare Sensors'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepPurple,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 14),
                     ),
-                  );
-                },
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const SensorComparisonPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 12),
+                  if (weatherData.isNotEmpty && !isLoading)
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.zoom_out_map),
+                      label: const Text('Reset All Zooms'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 14),
+                      ),
+                      onPressed: resetAllZooms,
+                    ),
+                ],
               ),
 
               // Error Message
@@ -185,7 +217,8 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
               const SizedBox(height: 20),
               // Charts
               if (weatherData.isNotEmpty && !isLoading) ...[
-                _buildChart(
+                _buildZoomableChart(
+                  'chart1',
                   'Rainfall vs Atmospheric Pressure',
                   Colors.blue,
                   Colors.purple,
@@ -195,7 +228,8 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
                   (data) => data.atmPressure,
                 ),
                 const SizedBox(height: 20),
-                _buildChart(
+                _buildZoomableChart(
+                  'chart2',
                   'Rainfall vs Light Intensity',
                   Colors.blue,
                   Colors.amber,
@@ -205,7 +239,8 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
                   (data) => data.lightIntensity,
                 ),
                 const SizedBox(height: 20),
-                _buildChart(
+                _buildZoomableChart(
+                  'chart3',
                   'Rainfall vs Temperature',
                   Colors.blue,
                   Colors.red,
@@ -215,7 +250,8 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
                   (data) => data.currentTemperature,
                 ),
                 const SizedBox(height: 20),
-                _buildChart(
+                _buildZoomableChart(
+                  'chart4',
                   'Rainfall vs Humidity',
                   Colors.blue,
                   Colors.cyan,
@@ -225,7 +261,8 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
                   (data) => data.currentHumidity,
                 ),
                 const SizedBox(height: 20),
-                _buildChart(
+                _buildZoomableChart(
+                  'chart5',
                   'Rainfall vs Wind Speed',
                   Colors.blue,
                   Colors.green,
@@ -397,7 +434,8 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
     );
   }
 
-  Widget _buildChart(
+  Widget _buildZoomableChart(
+    String chartId,
     String title,
     Color line1Color,
     Color line2Color,
@@ -406,6 +444,13 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
     double Function(WeatherData) getValue1,
     double Function(WeatherData) getValue2,
   ) {
+    // Initialize zoom and pan for this chart if not exists
+    zoomLevels.putIfAbsent(chartId, () => 1.0);
+    panOffsets.putIfAbsent(chartId, () => 0.0);
+
+    final currentZoom = zoomLevels[chartId]!;
+    final currentPan = panOffsets[chartId]!;
+
     final spots1 = <FlSpot>[];
     final spots2Normalized = <FlSpot>[];
     final spots2Original = <FlSpot>[];
@@ -426,7 +471,6 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
     // Handle Y1 axis (rainfall) - add padding or default range if all zeros
     double adjustedMinY1, adjustedMaxY1;
     if (maxY1 - minY1 == 0) {
-      // All values are the same (likely 0)
       adjustedMinY1 = minY1 - 1;
       adjustedMaxY1 = maxY1 + 1;
     } else {
@@ -439,16 +483,25 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
     for (var spot in spots2Original) {
       double normalized;
       if (maxY2 - minY2 == 0) {
-        // If all values are the same, place at 75% height
         normalized = adjustedMinY1 + (adjustedMaxY1 - adjustedMinY1) * 0.75;
       } else {
-        // Normalize to fit within Y1 axis range
         normalized = ((spot.y - minY2) / (maxY2 - minY2)) *
                 (adjustedMaxY1 - adjustedMinY1) +
             adjustedMinY1;
       }
       spots2Normalized.add(FlSpot(spot.x, normalized));
     }
+
+    // Calculate visible range based on zoom and pan
+    final dataLength = weatherData.length;
+    final visibleRange = dataLength / currentZoom;
+    final maxPanOffset =
+        (dataLength - visibleRange).clamp(0.0, double.infinity);
+    final clampedPanOffset = currentPan.clamp(0.0, maxPanOffset);
+
+    final minX = clampedPanOffset;
+    final maxX =
+        (clampedPanOffset + visibleRange).clamp(0.0, dataLength.toDouble());
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -467,187 +520,266 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              if (currentZoom > 1.0)
+                IconButton(
+                  icon: const Icon(Icons.zoom_out_map, size: 20),
+                  tooltip: 'Reset Zoom',
+                  onPressed: () {
+                    setState(() {
+                      zoomLevels[chartId] = 1.0;
+                      panOffsets[chartId] = 0.0;
+                    });
+                  },
+                ),
+            ],
           ),
+          // const SizedBox(height: 8),
+          // Container(
+          //   padding: const EdgeInsets.all(8),
+          //   decoration: BoxDecoration(
+          //     color: Colors.blue.shade50,
+          //     borderRadius: BorderRadius.circular(6),
+          //   ),
+          // child: const Row(
+          //   children: [
+          //     Icon(Icons.info_outline, size: 14, color: Colors.blue),
+          //     SizedBox(width: 6),
+          //     // Expanded(
+          //     // child: Text(
+          //     //   'Zoom: ${currentZoom.toStringAsFixed(1)}x | Mobile: Pinch to zoom, drag to pan | Desktop: Shift + Scroll to zoom',
+          //     //   style: const TextStyle(fontSize: 11, color: Colors.blue),
+          //     // ),
+          //     // ),
+          //   ],
+          // ),
+          // ),
           const SizedBox(height: 20),
           SizedBox(
             height: 300,
-            child: LineChart(
-              LineChartData(
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: true,
-                  horizontalInterval: 1,
-                  verticalInterval: 1,
-                  getDrawingHorizontalLine: (value) {
-                    return FlLine(
-                      color: Colors.grey.shade200,
-                      strokeWidth: 1,
-                    );
-                  },
-                  getDrawingVerticalLine: (value) {
-                    return FlLine(
-                      color: Colors.grey.shade200,
-                      strokeWidth: 1,
-                    );
-                  },
-                ),
-                titlesData: FlTitlesData(
-                  show: true,
-                  rightTitles: AxisTitles(
-                    axisNameWidget: Padding(
-                      padding: const EdgeInsets.only(left: 8),
-                      child: Text(
-                        rightLabel,
-                        style: TextStyle(
-                            fontSize: 10,
-                            color: line2Color,
-                            fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 50,
-                      interval: (maxY2 - minY2) / 5,
-                      getTitlesWidget: (value, meta) {
-                        // Convert normalized value back to original Y2 scale
-                        if (adjustedMaxY1 - adjustedMinY1 == 0) {
-                          return const SizedBox.shrink();
-                        }
-                        final originalValue = ((value - adjustedMinY1) /
-                                    (adjustedMaxY1 - adjustedMinY1)) *
-                                (maxY2 - minY2) +
-                            minY2;
+            child: Listener(
+              onPointerSignal: (pointerSignal) {
+                if (pointerSignal is PointerScrollEvent) {
+                  // Simple scroll detection - you can enhance this with shift key detection
+                  // For now, we'll use scroll for zoom (you can add shift key check if needed)
+                  final delta = pointerSignal.scrollDelta.dy;
+                  setState(() {
+                    if (delta < 0) {
+                      // Zoom in
+                      zoomLevels[chartId] =
+                          (currentZoom * 1.1).clamp(1.0, 10.0);
+                    } else {
+                      // Zoom out
+                      zoomLevels[chartId] =
+                          (currentZoom / 1.1).clamp(1.0, 10.0);
+                    }
+                  });
+                }
+              },
+              child: GestureDetector(
+                onScaleStart: (details) {
+                  // Store initial values for pinch gesture
+                },
+                onScaleUpdate: (details) {
+                  setState(() {
+                    // Handle pinch zoom
+                    if (details.scale != 1.0) {
+                      final newZoom = currentZoom * details.scale;
+                      zoomLevels[chartId] = newZoom.clamp(1.0, 10.0);
+                    }
 
-                        // Only show values within reasonable range
-                        if (originalValue < minY2 - (maxY2 - minY2) * 0.2 ||
-                            originalValue > maxY2 + (maxY2 - minY2) * 0.2) {
-                          return const SizedBox.shrink();
-                        }
-
-                        return Text(
-                          originalValue.toStringAsFixed(0),
-                          style: TextStyle(fontSize: 10, color: line2Color),
+                    // Handle pan (horizontal drag)
+                    if (details.focalPointDelta.dx != 0) {
+                      final panSensitivity =
+                          dataLength / (400 * zoomLevels[chartId]!);
+                      panOffsets[chartId] = (currentPan -
+                              details.focalPointDelta.dx * panSensitivity)
+                          .clamp(0.0, maxPanOffset);
+                    }
+                  });
+                },
+                child: LineChart(
+                  LineChartData(
+                    gridData: FlGridData(
+                      show: true,
+                      drawVerticalLine: true,
+                      horizontalInterval: 1,
+                      verticalInterval: 1,
+                      getDrawingHorizontalLine: (value) {
+                        return FlLine(
+                          color: Colors.grey.shade200,
+                          strokeWidth: 1,
+                        );
+                      },
+                      getDrawingVerticalLine: (value) {
+                        return FlLine(
+                          color: Colors.grey.shade200,
+                          strokeWidth: 1,
                         );
                       },
                     ),
-                  ),
-                  topTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 30,
-                      interval: weatherData.length > 20
-                          ? (weatherData.length / 10).ceilToDouble()
-                          : 1,
-                      getTitlesWidget: (value, meta) {
-                        if (value.toInt() >= 0 &&
-                            value.toInt() < weatherData.length) {
-                          final time = DateFormat('HH:mm')
-                              .format(weatherData[value.toInt()].timeStamp);
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: Text(
-                              time,
-                              style: const TextStyle(fontSize: 10),
-                            ),
-                          );
-                        }
-                        return const Text('');
-                      },
-                    ),
-                  ),
-                  leftTitles: AxisTitles(
-                    axisNameWidget: Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: Text(
-                        leftLabel,
-                        style: TextStyle(
-                            fontSize: 10,
-                            color: line1Color,
-                            fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 50,
-                      getTitlesWidget: (value, meta) {
-                        return Text(
-                          value.toStringAsFixed(1),
-                          style: TextStyle(fontSize: 10, color: line1Color),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                borderData: FlBorderData(
-                  show: true,
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                minX: 0,
-                maxX: (weatherData.length - 1).toDouble(),
-                minY: adjustedMinY1,
-                maxY: adjustedMaxY1,
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: spots1,
-                    isCurved: true,
-                    color: line1Color,
-                    barWidth: 3,
-                    isStrokeCapRound: true,
-                    dotData: const FlDotData(show: true),
-                    belowBarData: BarAreaData(show: false),
-                  ),
-                  LineChartBarData(
-                    spots: spots2Normalized,
-                    isCurved: true,
-                    color: line2Color,
-                    barWidth: 3,
-                    isStrokeCapRound: true,
-                    dotData: const FlDotData(show: true),
-                    belowBarData: BarAreaData(show: false),
-                  ),
-                ],
-                lineTouchData: LineTouchData(
-                  touchTooltipData: LineTouchTooltipData(
-                    getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
-                      return touchedBarSpots.map((barSpot) {
-                        final index = barSpot.x.toInt();
-                        if (index < 0 || index >= weatherData.length) {
-                          return null;
-                        }
-
-                        final timestamp = DateFormat('dd-MM-yyyy HH:mm')
-                            .format(weatherData[index].timeStamp);
-                        final actualValue1 = getValue1(weatherData[index]);
-                        final actualValue2 = getValue2(weatherData[index]);
-
-                        if (barSpot.barIndex == 0) {
-                          return LineTooltipItem(
-                            '$timestamp\n$leftLabel: ${actualValue1.toStringAsFixed(1)}',
-                            TextStyle(
-                                color: line1Color,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12),
-                          );
-                        } else {
-                          return LineTooltipItem(
-                            '$timestamp\n$rightLabel: ${actualValue2.toStringAsFixed(1)}',
-                            TextStyle(
+                    titlesData: FlTitlesData(
+                      show: true,
+                      rightTitles: AxisTitles(
+                        axisNameWidget: Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Text(
+                            rightLabel,
+                            style: TextStyle(
+                                fontSize: 10,
                                 color: line2Color,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12),
-                          );
-                        }
-                      }).toList();
-                    },
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 50,
+                          interval: (maxY2 - minY2) / 5,
+                          getTitlesWidget: (value, meta) {
+                            if (adjustedMaxY1 - adjustedMinY1 == 0) {
+                              return const SizedBox.shrink();
+                            }
+                            final originalValue = ((value - adjustedMinY1) /
+                                        (adjustedMaxY1 - adjustedMinY1)) *
+                                    (maxY2 - minY2) +
+                                minY2;
+
+                            if (originalValue < minY2 - (maxY2 - minY2) * 0.2 ||
+                                originalValue > maxY2 + (maxY2 - minY2) * 0.2) {
+                              return const SizedBox.shrink();
+                            }
+
+                            return Text(
+                              originalValue.toStringAsFixed(0),
+                              style: TextStyle(fontSize: 10, color: line2Color),
+                            );
+                          },
+                        ),
+                      ),
+                      topTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 30,
+                          interval: (visibleRange / 10)
+                              .ceilToDouble()
+                              .clamp(1.0, double.infinity),
+                          getTitlesWidget: (value, meta) {
+                            if (value.toInt() >= 0 &&
+                                value.toInt() < weatherData.length) {
+                              final time = DateFormat('HH:mm')
+                                  .format(weatherData[value.toInt()].timeStamp);
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Text(
+                                  time,
+                                  style: const TextStyle(fontSize: 10),
+                                ),
+                              );
+                            }
+                            return const Text('');
+                          },
+                        ),
+                      ),
+                      leftTitles: AxisTitles(
+                        axisNameWidget: Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Text(
+                            leftLabel,
+                            style: TextStyle(
+                                fontSize: 10,
+                                color: line1Color,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 50,
+                          getTitlesWidget: (value, meta) {
+                            return Text(
+                              value.toStringAsFixed(1),
+                              style: TextStyle(fontSize: 10, color: line1Color),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    borderData: FlBorderData(
+                      show: true,
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    minX: minX,
+                    maxX: maxX,
+                    minY: adjustedMinY1,
+                    maxY: adjustedMaxY1,
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: spots1,
+                        isCurved: true,
+                        color: line1Color,
+                        barWidth: 3,
+                        isStrokeCapRound: true,
+                        dotData: FlDotData(show: currentZoom > 3),
+                        belowBarData: BarAreaData(show: false),
+                      ),
+                      LineChartBarData(
+                        spots: spots2Normalized,
+                        isCurved: true,
+                        color: line2Color,
+                        barWidth: 3,
+                        isStrokeCapRound: true,
+                        dotData: FlDotData(show: currentZoom > 3),
+                        belowBarData: BarAreaData(show: false),
+                      ),
+                    ],
+                    lineTouchData: LineTouchData(
+                      touchTooltipData: LineTouchTooltipData(
+                        getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
+                          return touchedBarSpots.map((barSpot) {
+                            final index = barSpot.x.toInt();
+                            if (index < 0 || index >= weatherData.length) {
+                              return null;
+                            }
+
+                            final timestamp = DateFormat('dd-MM-yyyy HH:mm')
+                                .format(weatherData[index].timeStamp);
+                            final actualValue1 = getValue1(weatherData[index]);
+                            final actualValue2 = getValue2(weatherData[index]);
+
+                            if (barSpot.barIndex == 0) {
+                              return LineTooltipItem(
+                                '$timestamp\n$leftLabel: ${actualValue1.toStringAsFixed(1)}',
+                                TextStyle(
+                                    color: line1Color,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12),
+                              );
+                            } else {
+                              return LineTooltipItem(
+                                '$timestamp\n$rightLabel: ${actualValue2.toStringAsFixed(1)}',
+                                TextStyle(
+                                    color: line2Color,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12),
+                              );
+                            }
+                          }).toList();
+                        },
+                      ),
+                    ),
                   ),
                 ),
               ),
