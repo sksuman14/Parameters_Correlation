@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:rainfall_dashboard/SensorComparisonPage.dart';
 
 void main() {
   runApp(const MyApp());
@@ -151,6 +152,24 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
               // Date Controls
               _buildDateControls(),
               const SizedBox(height: 20),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.compare_arrows),
+                label: const Text('Compare Sensors'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepPurple,
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const SensorComparisonPage(),
+                    ),
+                  );
+                },
+              ),
 
               // Error Message
               if (errorMessage != null) _buildErrorMessage(),
