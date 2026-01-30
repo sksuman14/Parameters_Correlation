@@ -1,4 +1,4 @@
-package com.example.parameters_relation
+package com.example.rainfall_dashboard
 
 import io.flutter.embedding.android.FlutterActivity
 

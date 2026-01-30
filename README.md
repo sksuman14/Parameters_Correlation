@@ -1,4 +1,4 @@
-# parameters_relation
+# rainfall_dashboard
 
 A new Flutter project.
 

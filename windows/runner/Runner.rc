@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "parameters_relation" "\0"
+            VALUE "FileDescription", "rainfall_dashboard" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "parameters_relation" "\0"
+            VALUE "InternalName", "rainfall_dashboard" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "parameters_relation.exe" "\0"
-            VALUE "ProductName", "parameters_relation" "\0"
+            VALUE "OriginalFilename", "rainfall_dashboard.exe" "\0"
+            VALUE "ProductName", "rainfall_dashboard" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
