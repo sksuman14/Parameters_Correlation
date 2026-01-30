@@ -433,9 +433,6 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
     panOffsets.putIfAbsent(chartId, () => 0.0);
     baseScales.putIfAbsent(chartId, () => 1.0);
 
-    final currentZoom = zoomLevels[chartId]!;
-    final currentPan = panOffsets[chartId]!;
-
     final spots1 = <FlSpot>[];
     final spots2Normalized = <FlSpot>[];
     final spots2Original = <FlSpot>[];
@@ -479,6 +476,8 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
 
     // Calculate visible range based on zoom and pan
     final dataLength = weatherData.length;
+    final currentZoom = zoomLevels[chartId]!;
+    final currentPan = panOffsets[chartId]!;
     final visibleRange = dataLength / currentZoom;
     final maxPanOffset =
         (dataLength - visibleRange).clamp(0.0, double.infinity);
@@ -539,43 +538,49 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
                 if (pointerSignal is PointerScrollEvent) {
                   final delta = pointerSignal.scrollDelta.dy;
                   setState(() {
-                    if (delta < 0) {
-                      // Zoom in
-                      zoomLevels[chartId] =
-                          (currentZoom * 1.1).clamp(1.0, 10.0);
-                    } else {
-                      // Zoom out
-                      zoomLevels[chartId] =
-                          (currentZoom / 1.1).clamp(1.0, 10.0);
-                    }
+                    final newZoom = delta < 0
+                        ? (zoomLevels[chartId]! * 1.1).clamp(1.0, 10.0)
+                        : (zoomLevels[chartId]! / 1.1).clamp(1.0, 10.0);
+                    zoomLevels[chartId] = newZoom;
                   });
                 }
               },
               child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onScaleStart: (details) {
-                  // Store the current zoom as the base for this gesture
-                  baseScales[chartId] = zoomLevels[chartId]!;
+                  setState(() {
+                    baseScales[chartId] = zoomLevels[chartId]!;
+                  });
                 },
                 onScaleUpdate: (details) {
-                  setState(() {
-                    // Handle pinch zoom - multiply base scale by gesture scale
-                    final newZoom = baseScales[chartId]! * details.scale;
-                    zoomLevels[chartId] = newZoom.clamp(1.0, 10.0);
+                  final dataLength = weatherData.length;
+                  final currentZoom = zoomLevels[chartId]!;
+                  final currentPan = panOffsets[chartId]!;
+                  final visibleRange = dataLength / currentZoom;
+                  final maxPanOffset =
+                      (dataLength - visibleRange).clamp(0.0, double.infinity);
 
-                    // Handle pan (horizontal drag) - only when not actively scaling
-                    if ((details.scale - 1.0).abs() < 0.01 &&
-                        details.focalPointDelta.dx != 0) {
-                      final panSensitivity =
-                          dataLength / (400 * zoomLevels[chartId]!);
-                      panOffsets[chartId] = (currentPan -
+                  setState(() {
+                    // Handle pinch zoom
+                    if (details.scale != 1.0) {
+                      final newZoom = baseScales[chartId]! * details.scale;
+                      zoomLevels[chartId] = newZoom.clamp(1.0, 10.0);
+                    }
+
+                    // Handle pan - allow panning even during zoom
+                    if (details.focalPointDelta.dx.abs() > 0.1) {
+                      final panSensitivity = dataLength / (400 * currentZoom);
+                      final newPan = (currentPan -
                               details.focalPointDelta.dx * panSensitivity)
                           .clamp(0.0, maxPanOffset);
+                      panOffsets[chartId] = newPan;
                     }
                   });
                 },
                 onScaleEnd: (details) {
-                  // Update base scale to current zoom for next gesture
-                  baseScales[chartId] = zoomLevels[chartId]!;
+                  setState(() {
+                    baseScales[chartId] = zoomLevels[chartId]!;
+                  });
                 },
                 child: LineChart(
                   LineChartData(
