@@ -256,9 +256,19 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
               Text(error!, style: const TextStyle(color: Colors.red)),
             if (!loading && dataA.isNotEmpty && dataB.isNotEmpty) ...[
               const SizedBox(height: 8),
-              SizedBox(height: 350, child: _buildChart()),
-              const SizedBox(height: 16),
-              _buildLegend(),
+              Card(
+                clipBehavior: Clip.hardEdge,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      SizedBox(height: 350, child: _buildChart()),
+                      const SizedBox(height: 16),
+                      _buildLegend(),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ],
         ),
@@ -398,184 +408,186 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     final minX = clampedPanOffset;
     final maxX = min(clampedPanOffset + visibleRange, length.toDouble());
 
-    return RawGestureDetector(
-      gestures: {
-        _PanZoomGestureRecognizer:
-            GestureRecognizerFactoryWithHandlers<_PanZoomGestureRecognizer>(
-          () => _PanZoomGestureRecognizer(),
-          (_PanZoomGestureRecognizer instance) {
-            instance
-              ..onStart = (details) {
-                baseScale = zoomLevel;
-              }
-              ..onUpdate = (details) {
-                // Handle zoom (pinch gesture)
-                if (details.scale != 1.0) {
-                  final newZoom = baseScale * details.scale;
-                  setState(() {
-                    zoomLevel = newZoom.clamp(minZoom, maxZoom);
-                  });
-                }
+    return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: RawGestureDetector(
+          gestures: {
+            _PanZoomGestureRecognizer:
+                GestureRecognizerFactoryWithHandlers<_PanZoomGestureRecognizer>(
+              () => _PanZoomGestureRecognizer(),
+              (_PanZoomGestureRecognizer instance) {
+                instance
+                  ..onStart = (details) {
+                    baseScale = zoomLevel;
+                  }
+                  ..onUpdate = (details) {
+                    // Handle zoom (pinch gesture)
+                    if (details.scale != 1.0) {
+                      final newZoom = baseScale * details.scale;
+                      setState(() {
+                        zoomLevel = newZoom.clamp(minZoom, maxZoom);
+                      });
+                    }
 
-                // Handle pan (horizontal drag)
-                if (details.focalPointDelta.dx.abs() > 0.1) {
-                  final panSensitivity = length / (400 * zoomLevel);
-                  final newPan =
-                      (panOffset - details.focalPointDelta.dx * panSensitivity)
+                    // Handle pan (horizontal drag)
+                    if (details.focalPointDelta.dx.abs() > 0.1) {
+                      final panSensitivity = length / (400 * zoomLevel);
+                      final newPan = (panOffset -
+                              details.focalPointDelta.dx * panSensitivity)
                           .clamp(0.0, max(0.0, length - (length / zoomLevel)))
                           .toDouble();
-                  setState(() {
-                    panOffset = newPan;
-                  });
-                }
-              }
-              ..onEnd = (details) {
-                baseScale = zoomLevel;
-              };
+                      setState(() {
+                        panOffset = newPan;
+                      });
+                    }
+                  }
+                  ..onEnd = (details) {
+                    baseScale = zoomLevel;
+                  };
+              },
+            ),
           },
-        ),
-      },
-      child: Listener(
-        onPointerSignal: (pointerSignal) {
-          if (pointerSignal is PointerScrollEvent) {
-            final delta = pointerSignal.scrollDelta.dy;
-            setState(() {
-              if (delta < 0) {
-                // Zoom in
-                zoomLevel = min(maxZoom, zoomLevel * 1.1);
-              } else {
-                // Zoom out
-                zoomLevel = max(minZoom, zoomLevel / 1.1);
+          child: Listener(
+            onPointerSignal: (pointerSignal) {
+              if (pointerSignal is PointerScrollEvent) {
+                final delta = pointerSignal.scrollDelta.dy;
+                setState(() {
+                  if (delta < 0) {
+                    // Zoom in
+                    zoomLevel = min(maxZoom, zoomLevel * 1.1);
+                  } else {
+                    // Zoom out
+                    zoomLevel = max(minZoom, zoomLevel / 1.1);
+                  }
+                });
               }
-            });
-          }
-        },
-        child: LineChart(
-          LineChartData(
-            minX: minX,
-            maxX: maxX,
-            gridData: FlGridData(
-              show: true,
-              getDrawingHorizontalLine: (value) =>
-                  FlLine(color: Colors.grey.shade200, strokeWidth: 1),
-              getDrawingVerticalLine: (value) =>
-                  FlLine(color: Colors.grey.shade200, strokeWidth: 1),
-            ),
-            borderData: FlBorderData(
-              show: true,
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            titlesData: FlTitlesData(
-              topTitles: const AxisTitles(
-                sideTitles: SideTitles(showTitles: false),
-              ),
-              leftTitles: AxisTitles(
-                axisNameWidget: Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Text(
-                    parameterLabel(selectedParameter),
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+            },
+            child: LineChart(
+              LineChartData(
+                minX: minX,
+                maxX: maxX,
+                gridData: FlGridData(
+                  show: true,
+                  getDrawingHorizontalLine: (value) =>
+                      FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+                  getDrawingVerticalLine: (value) =>
+                      FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+                ),
+                borderData: FlBorderData(
+                  show: true,
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                titlesData: FlTitlesData(
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  leftTitles: AxisTitles(
+                    axisNameWidget: Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Text(
+                        parameterLabel(selectedParameter),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 48,
+                      getTitlesWidget: (value, meta) {
+                        return Text(
+                          value.toStringAsFixed(1),
+                          style: const TextStyle(fontSize: 10),
+                        );
+                      },
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 30,
+                      interval: max(1, (visibleRange / 10).ceilToDouble()),
+                      getTitlesWidget: (value, meta) {
+                        final index = value.toInt();
+                        if (index >= 0 && index < dataA.length) {
+                          final time = DateFormat('HH:mm')
+                              .format(dataA[index].timeStamp);
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              time,
+                              style: const TextStyle(fontSize: 10),
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
                     ),
                   ),
                 ),
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  reservedSize: 48,
-                  getTitlesWidget: (value, meta) {
-                    return Text(
-                      value.toStringAsFixed(1),
-                      style: const TextStyle(fontSize: 10),
-                    );
-                  },
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: spotsA,
+                    isCurved: true,
+                    color: Colors.blue,
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    dotData: FlDotData(show: zoomLevel > 3),
+                    belowBarData: BarAreaData(show: false),
+                  ),
+                  LineChartBarData(
+                    spots: spotsB,
+                    isCurved: true,
+                    color: Colors.orange,
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    dotData: FlDotData(show: zoomLevel > 3),
+                    belowBarData: BarAreaData(show: false),
+                  ),
+                ],
+                lineTouchData: LineTouchData(
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipItems: (touchedSpots) {
+                      return touchedSpots.map((spot) {
+                        final index = spot.x.toInt();
+                        if (index < 0 || index >= dataA.length) return null;
+
+                        final timestamp = DateFormat('dd-MM-yyyy HH:mm')
+                            .format(dataA[index].timeStamp);
+
+                        final valueA =
+                            getParameterValue(dataA[index], selectedParameter);
+                        final valueB =
+                            getParameterValue(dataB[index], selectedParameter);
+
+                        if (spot.barIndex == 0) {
+                          return LineTooltipItem(
+                            '$timestamp\nDevice ${deviceAId ?? "A"}: ${valueA.toStringAsFixed(1)}',
+                            const TextStyle(
+                              color: Colors.blue,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          );
+                        } else {
+                          return LineTooltipItem(
+                            '$timestamp\nDevice ${deviceBId ?? "B"}: ${valueB.toStringAsFixed(1)}',
+                            const TextStyle(
+                              color: Colors.orange,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          );
+                        }
+                      }).toList();
+                    },
+                  ),
                 ),
-              ),
-              bottomTitles: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  reservedSize: 30,
-                  interval: max(1, (visibleRange / 10).ceilToDouble()),
-                  getTitlesWidget: (value, meta) {
-                    final index = value.toInt();
-                    if (index >= 0 && index < dataA.length) {
-                      final time =
-                          DateFormat('HH:mm').format(dataA[index].timeStamp);
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          time,
-                          style: const TextStyle(fontSize: 10),
-                        ),
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  },
-                ),
-              ),
-            ),
-            lineBarsData: [
-              LineChartBarData(
-                spots: spotsA,
-                isCurved: true,
-                color: Colors.blue,
-                barWidth: 3,
-                isStrokeCapRound: true,
-                dotData: FlDotData(show: zoomLevel > 3),
-                belowBarData: BarAreaData(show: false),
-              ),
-              LineChartBarData(
-                spots: spotsB,
-                isCurved: true,
-                color: Colors.orange,
-                barWidth: 3,
-                isStrokeCapRound: true,
-                dotData: FlDotData(show: zoomLevel > 3),
-                belowBarData: BarAreaData(show: false),
-              ),
-            ],
-            lineTouchData: LineTouchData(
-              touchTooltipData: LineTouchTooltipData(
-                getTooltipItems: (touchedSpots) {
-                  return touchedSpots.map((spot) {
-                    final index = spot.x.toInt();
-                    if (index < 0 || index >= dataA.length) return null;
-
-                    final timestamp = DateFormat('dd-MM-yyyy HH:mm')
-                        .format(dataA[index].timeStamp);
-
-                    final valueA =
-                        getParameterValue(dataA[index], selectedParameter);
-                    final valueB =
-                        getParameterValue(dataB[index], selectedParameter);
-
-                    if (spot.barIndex == 0) {
-                      return LineTooltipItem(
-                        '$timestamp\nDevice ${deviceAId ?? "A"}: ${valueA.toStringAsFixed(1)}',
-                        const TextStyle(
-                          color: Colors.blue,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      );
-                    } else {
-                      return LineTooltipItem(
-                        '$timestamp\nDevice ${deviceBId ?? "B"}: ${valueB.toStringAsFixed(1)}',
-                        const TextStyle(
-                          color: Colors.orange,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      );
-                    }
-                  }).toList();
-                },
               ),
             ),
           ),
-        ),
-      ),
-    );
+        ));
   }
 
   @override
