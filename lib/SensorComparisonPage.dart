@@ -119,6 +119,8 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
 
   List<WeatherData> dataA = [];
   List<WeatherData> dataB = [];
+  int? deviceAId;
+  int? deviceBId;
 
   bool loading = false;
   String? error;
@@ -152,6 +154,8 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     }
 
     setState(() {
+      deviceAId = deviceA;
+      deviceBId = deviceB;
       loading = true;
       error = null;
     });
@@ -211,7 +215,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
             _buildInputs(),
             const SizedBox(height: 16),
             ElevatedButton.icon(
-              icon: const Icon(Icons.compare),
               label: const Text('Compare'),
               onPressed: loading ? null : fetchComparisonData,
             ),
@@ -417,7 +420,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
 
                 if (spot.barIndex == 0) {
                   return LineTooltipItem(
-                    '$timestamp\nSensor A: ${valueA.toStringAsFixed(1)}',
+                    '$timestamp\nDevice ${deviceAId ?? "A"}: ${valueA.toStringAsFixed(1)}',
                     const TextStyle(
                       color: Colors.blue,
                       fontWeight: FontWeight.bold,
@@ -426,7 +429,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
                   );
                 } else {
                   return LineTooltipItem(
-                    '$timestamp\nSensor B: ${valueB.toStringAsFixed(1)}',
+                    '$timestamp\nDevice ${deviceBId ?? "B"}: ${valueB.toStringAsFixed(1)}',
                     const TextStyle(
                       color: Colors.orange,
                       fontWeight: FontWeight.bold,

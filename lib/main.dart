@@ -182,7 +182,7 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
                     child: CircularProgressIndicator(),
                   ),
                 ),
-
+              const SizedBox(height: 20),
               // Charts
               if (weatherData.isNotEmpty && !isLoading) ...[
                 _buildChart(
