@@ -96,8 +96,6 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
   // Zoom states for each chart
   final Map<String, double> zoomLevels = {};
   final Map<String, double> panOffsets = {};
-
-  // Track initial scale for each chart
   final Map<String, double> baseScales = {};
 
   @override
@@ -110,7 +108,6 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
     setState(() {
       isLoading = true;
       errorMessage = null;
-      // Reset all zooms when fetching new data
       zoomLevels.clear();
       panOffsets.clear();
       baseScales.clear();
@@ -157,40 +154,29 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               _buildHeader(),
               const SizedBox(height: 20),
-
-              // Date Controls
               _buildDateControls(),
               const SizedBox(height: 20),
-              Row(
-                children: [
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.compare_arrows),
-                    label: const Text('Compare Sensors'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.deepPurple,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 14),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.compare_arrows),
+                label: const Text('Compare Sensors'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepPurple,
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const SensorComparisonPage(),
                     ),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const SensorComparisonPage(),
-                        ),
-                      );
-                    },
-                  ),
-                ],
+                  );
+                },
               ),
-
-              // Error Message
               if (errorMessage != null) _buildErrorMessage(),
-
-              // Loading indicator
               if (isLoading)
                 const Center(
                   child: Padding(
@@ -199,7 +185,6 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
                   ),
                 ),
               const SizedBox(height: 20),
-              // Charts
               if (weatherData.isNotEmpty && !isLoading) ...[
                 _buildZoomableChart(
                   'chart1',
@@ -256,7 +241,6 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
                   (data) => data.windSpeed,
                 ),
               ],
-
               if (weatherData.isEmpty && !isLoading)
                 const Center(
                   child: Padding(
@@ -428,347 +412,38 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
     double Function(WeatherData) getValue1,
     double Function(WeatherData) getValue2,
   ) {
-    // Initialize zoom and pan for this chart if not exists
     zoomLevels.putIfAbsent(chartId, () => 1.0);
     panOffsets.putIfAbsent(chartId, () => 0.0);
     baseScales.putIfAbsent(chartId, () => 1.0);
 
-    final spots1 = <FlSpot>[];
-    final spots2Normalized = <FlSpot>[];
-    final spots2Original = <FlSpot>[];
-
-    for (int i = 0; i < weatherData.length; i++) {
-      spots1.add(FlSpot(i.toDouble(), getValue1(weatherData[i])));
-      spots2Original.add(FlSpot(i.toDouble(), getValue2(weatherData[i])));
-    }
-
-    final values1 = weatherData.map(getValue1).toList();
-    final values2 = weatherData.map(getValue2).toList();
-
-    final minY1 = values1.reduce((a, b) => a < b ? a : b);
-    final maxY1 = values1.reduce((a, b) => a > b ? a : b);
-    final minY2 = values2.reduce((a, b) => a < b ? a : b);
-    final maxY2 = values2.reduce((a, b) => a > b ? a : b);
-
-    // Handle Y1 axis (rainfall) - add padding or default range if all zeros
-    double adjustedMinY1, adjustedMaxY1;
-    if (maxY1 - minY1 == 0) {
-      adjustedMinY1 = minY1 - 1;
-      adjustedMaxY1 = maxY1 + 1;
-    } else {
-      final y1Padding = (maxY1 - minY1) * 0.15;
-      adjustedMinY1 = minY1 - y1Padding;
-      adjustedMaxY1 = maxY1 + y1Padding;
-    }
-
-    // Normalize second line to fit on the same visual scale as first line
-    for (var spot in spots2Original) {
-      double normalized;
-      if (maxY2 - minY2 == 0) {
-        normalized = adjustedMinY1 + (adjustedMaxY1 - adjustedMinY1) * 0.75;
-      } else {
-        normalized = ((spot.y - minY2) / (maxY2 - minY2)) *
-                (adjustedMaxY1 - adjustedMinY1) +
-            adjustedMinY1;
-      }
-      spots2Normalized.add(FlSpot(spot.x, normalized));
-    }
-
-    // Calculate visible range based on zoom and pan
-    final dataLength = weatherData.length;
-    final currentZoom = zoomLevels[chartId]!;
-    final currentPan = panOffsets[chartId]!;
-    final visibleRange = dataLength / currentZoom;
-    final maxPanOffset =
-        (dataLength - visibleRange).clamp(0.0, double.infinity);
-    final clampedPanOffset = currentPan.clamp(0.0, maxPanOffset);
-
-    final minX = clampedPanOffset;
-    final maxX =
-        (clampedPanOffset + visibleRange).clamp(0.0, dataLength.toDouble());
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              if (currentZoom > 1.0)
-                IconButton(
-                  icon: const Icon(Icons.zoom_out_map, size: 20),
-                  tooltip: 'Reset Zoom',
-                  onPressed: () {
-                    setState(() {
-                      zoomLevels[chartId] = 1.0;
-                      panOffsets[chartId] = 0.0;
-                      baseScales[chartId] = 1.0;
-                    });
-                  },
-                ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            height: 300,
-            child: Listener(
-              onPointerSignal: (pointerSignal) {
-                if (pointerSignal is PointerScrollEvent) {
-                  final delta = pointerSignal.scrollDelta.dy;
-                  setState(() {
-                    final newZoom = delta < 0
-                        ? (zoomLevels[chartId]! * 1.1).clamp(1.0, 10.0)
-                        : (zoomLevels[chartId]! / 1.1).clamp(1.0, 10.0);
-                    zoomLevels[chartId] = newZoom;
-                  });
-                }
-              },
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onScaleStart: (details) {
-                  setState(() {
-                    baseScales[chartId] = zoomLevels[chartId]!;
-                  });
-                },
-                onScaleUpdate: (details) {
-                  final dataLength = weatherData.length;
-                  final currentZoom = zoomLevels[chartId]!;
-                  final currentPan = panOffsets[chartId]!;
-                  final visibleRange = dataLength / currentZoom;
-                  final maxPanOffset =
-                      (dataLength - visibleRange).clamp(0.0, double.infinity);
-
-                  setState(() {
-                    // Handle pinch zoom
-                    if (details.scale != 1.0) {
-                      final newZoom = baseScales[chartId]! * details.scale;
-                      zoomLevels[chartId] = newZoom.clamp(1.0, 10.0);
-                    }
-
-                    // Handle pan - allow panning even during zoom
-                    if (details.focalPointDelta.dx.abs() > 0.1) {
-                      final panSensitivity = dataLength / (400 * currentZoom);
-                      final newPan = (currentPan -
-                              details.focalPointDelta.dx * panSensitivity)
-                          .clamp(0.0, maxPanOffset);
-                      panOffsets[chartId] = newPan;
-                    }
-                  });
-                },
-                onScaleEnd: (details) {
-                  setState(() {
-                    baseScales[chartId] = zoomLevels[chartId]!;
-                  });
-                },
-                child: LineChart(
-                  LineChartData(
-                    gridData: FlGridData(
-                      show: true,
-                      drawVerticalLine: true,
-                      horizontalInterval: 1,
-                      verticalInterval: 1,
-                      getDrawingHorizontalLine: (value) {
-                        return FlLine(
-                          color: Colors.grey.shade200,
-                          strokeWidth: 1,
-                        );
-                      },
-                      getDrawingVerticalLine: (value) {
-                        return FlLine(
-                          color: Colors.grey.shade200,
-                          strokeWidth: 1,
-                        );
-                      },
-                    ),
-                    titlesData: FlTitlesData(
-                      show: true,
-                      rightTitles: AxisTitles(
-                        axisNameWidget: Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: Text(
-                            rightLabel,
-                            style: TextStyle(
-                                fontSize: 10,
-                                color: line2Color,
-                                fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 50,
-                          interval: (maxY2 - minY2) / 5,
-                          getTitlesWidget: (value, meta) {
-                            if (adjustedMaxY1 - adjustedMinY1 == 0) {
-                              return const SizedBox.shrink();
-                            }
-                            final originalValue = ((value - adjustedMinY1) /
-                                        (adjustedMaxY1 - adjustedMinY1)) *
-                                    (maxY2 - minY2) +
-                                minY2;
-
-                            if (originalValue < minY2 - (maxY2 - minY2) * 0.2 ||
-                                originalValue > maxY2 + (maxY2 - minY2) * 0.2) {
-                              return const SizedBox.shrink();
-                            }
-
-                            return Text(
-                              originalValue.toStringAsFixed(0),
-                              style: TextStyle(fontSize: 10, color: line2Color),
-                            );
-                          },
-                        ),
-                      ),
-                      topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 30,
-                          interval: (visibleRange / 10)
-                              .ceilToDouble()
-                              .clamp(1.0, double.infinity),
-                          getTitlesWidget: (value, meta) {
-                            if (value.toInt() >= 0 &&
-                                value.toInt() < weatherData.length) {
-                              final time = DateFormat('HH:mm')
-                                  .format(weatherData[value.toInt()].timeStamp);
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 8.0),
-                                child: Text(
-                                  time,
-                                  style: const TextStyle(fontSize: 10),
-                                ),
-                              );
-                            }
-                            return const Text('');
-                          },
-                        ),
-                      ),
-                      leftTitles: AxisTitles(
-                        axisNameWidget: Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: Text(
-                            leftLabel,
-                            style: TextStyle(
-                                fontSize: 10,
-                                color: line1Color,
-                                fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 50,
-                          getTitlesWidget: (value, meta) {
-                            return Text(
-                              value.toStringAsFixed(1),
-                              style: TextStyle(fontSize: 10, color: line1Color),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                    borderData: FlBorderData(
-                      show: true,
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    minX: minX,
-                    maxX: maxX,
-                    minY: adjustedMinY1,
-                    maxY: adjustedMaxY1,
-                    lineBarsData: [
-                      LineChartBarData(
-                        spots: spots1,
-                        isCurved: true,
-                        color: line1Color,
-                        barWidth: 3,
-                        isStrokeCapRound: true,
-                        dotData: FlDotData(show: currentZoom > 3),
-                        belowBarData: BarAreaData(show: false),
-                      ),
-                      LineChartBarData(
-                        spots: spots2Normalized,
-                        isCurved: true,
-                        color: line2Color,
-                        barWidth: 3,
-                        isStrokeCapRound: true,
-                        dotData: FlDotData(show: currentZoom > 3),
-                        belowBarData: BarAreaData(show: false),
-                      ),
-                    ],
-                    lineTouchData: LineTouchData(
-                      touchTooltipData: LineTouchTooltipData(
-                        getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
-                          return touchedBarSpots.map((barSpot) {
-                            final index = barSpot.x.toInt();
-                            if (index < 0 || index >= weatherData.length) {
-                              return null;
-                            }
-
-                            final timestamp = DateFormat('dd-MM-yyyy HH:mm')
-                                .format(weatherData[index].timeStamp);
-                            final actualValue1 = getValue1(weatherData[index]);
-                            final actualValue2 = getValue2(weatherData[index]);
-
-                            if (barSpot.barIndex == 0) {
-                              return LineTooltipItem(
-                                '$timestamp\n$leftLabel: ${actualValue1.toStringAsFixed(1)}',
-                                TextStyle(
-                                    color: line1Color,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12),
-                              );
-                            } else {
-                              return LineTooltipItem(
-                                '$timestamp\n$rightLabel: ${actualValue2.toStringAsFixed(1)}',
-                                TextStyle(
-                                    color: line2Color,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12),
-                              );
-                            }
-                          }).toList();
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildLegendItem(leftLabel, line1Color),
-              const SizedBox(width: 24),
-              _buildLegendItem(rightLabel, line2Color),
-            ],
-          ),
-        ],
-      ),
+    return ZoomableChartWidget(
+      chartId: chartId,
+      title: title,
+      line1Color: line1Color,
+      line2Color: line2Color,
+      leftLabel: leftLabel,
+      rightLabel: rightLabel,
+      getValue1: getValue1,
+      getValue2: getValue2,
+      weatherData: weatherData,
+      zoomLevel: zoomLevels[chartId]!,
+      panOffset: panOffsets[chartId]!,
+      onZoomChanged: (newZoom) {
+        setState(() {
+          zoomLevels[chartId] = newZoom;
+        });
+      },
+      onPanChanged: (newPan) {
+        setState(() {
+          panOffsets[chartId] = newPan;
+        });
+      },
+      onBaseScaleChanged: (newBase) {
+        setState(() {
+          baseScales[chartId] = newBase;
+        });
+      },
+      baseScale: baseScales[chartId]!,
     );
   }
 
@@ -797,5 +472,414 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
     startDateController.dispose();
     endDateController.dispose();
     super.dispose();
+  }
+}
+
+class ZoomableChartWidget extends StatefulWidget {
+  final String chartId;
+  final String title;
+  final Color line1Color;
+  final Color line2Color;
+  final String leftLabel;
+  final String rightLabel;
+  final double Function(WeatherData) getValue1;
+  final double Function(WeatherData) getValue2;
+  final List<WeatherData> weatherData;
+  final double zoomLevel;
+  final double panOffset;
+  final double baseScale;
+  final Function(double) onZoomChanged;
+  final Function(double) onPanChanged;
+  final Function(double) onBaseScaleChanged;
+
+  const ZoomableChartWidget({
+    Key? key,
+    required this.chartId,
+    required this.title,
+    required this.line1Color,
+    required this.line2Color,
+    required this.leftLabel,
+    required this.rightLabel,
+    required this.getValue1,
+    required this.getValue2,
+    required this.weatherData,
+    required this.zoomLevel,
+    required this.panOffset,
+    required this.baseScale,
+    required this.onZoomChanged,
+    required this.onPanChanged,
+    required this.onBaseScaleChanged,
+  }) : super(key: key);
+
+  @override
+  State<ZoomableChartWidget> createState() => _ZoomableChartWidgetState();
+}
+
+class _ZoomableChartWidgetState extends State<ZoomableChartWidget> {
+  @override
+  Widget build(BuildContext context) {
+    final spots1 = <FlSpot>[];
+    final spots2Normalized = <FlSpot>[];
+    final spots2Original = <FlSpot>[];
+
+    for (int i = 0; i < widget.weatherData.length; i++) {
+      spots1.add(FlSpot(i.toDouble(), widget.getValue1(widget.weatherData[i])));
+      spots2Original
+          .add(FlSpot(i.toDouble(), widget.getValue2(widget.weatherData[i])));
+    }
+
+    final values1 = widget.weatherData.map(widget.getValue1).toList();
+    final values2 = widget.weatherData.map(widget.getValue2).toList();
+
+    final minY1 = values1.reduce((a, b) => a < b ? a : b);
+    final maxY1 = values1.reduce((a, b) => a > b ? a : b);
+    final minY2 = values2.reduce((a, b) => a < b ? a : b);
+    final maxY2 = values2.reduce((a, b) => a > b ? a : b);
+
+    double adjustedMinY1, adjustedMaxY1;
+    if (maxY1 - minY1 == 0) {
+      adjustedMinY1 = minY1 - 1;
+      adjustedMaxY1 = maxY1 + 1;
+    } else {
+      final y1Padding = (maxY1 - minY1) * 0.15;
+      adjustedMinY1 = minY1 - y1Padding;
+      adjustedMaxY1 = maxY1 + y1Padding;
+    }
+
+    for (var spot in spots2Original) {
+      double normalized;
+      if (maxY2 - minY2 == 0) {
+        normalized = adjustedMinY1 + (adjustedMaxY1 - adjustedMinY1) * 0.75;
+      } else {
+        normalized = ((spot.y - minY2) / (maxY2 - minY2)) *
+                (adjustedMaxY1 - adjustedMinY1) +
+            adjustedMinY1;
+      }
+      spots2Normalized.add(FlSpot(spot.x, normalized));
+    }
+
+    final dataLength = widget.weatherData.length;
+    final visibleRange = dataLength / widget.zoomLevel;
+    final maxPanOffset =
+        (dataLength - visibleRange).clamp(0.0, double.infinity);
+    final clampedPanOffset = widget.panOffset.clamp(0.0, maxPanOffset);
+
+    final minX = clampedPanOffset;
+    final maxX =
+        (clampedPanOffset + visibleRange).clamp(0.0, dataLength.toDouble());
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  widget.title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              if (widget.zoomLevel > 1.0)
+                IconButton(
+                  icon: const Icon(Icons.zoom_out_map, size: 20),
+                  tooltip: 'Reset Zoom',
+                  onPressed: () {
+                    widget.onZoomChanged(1.0);
+                    widget.onPanChanged(0.0);
+                    widget.onBaseScaleChanged(1.0);
+                  },
+                ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 300,
+            child: RawGestureDetector(
+              gestures: {
+                _PanZoomGestureRecognizer: GestureRecognizerFactoryWithHandlers<
+                    _PanZoomGestureRecognizer>(
+                  () => _PanZoomGestureRecognizer(),
+                  (_PanZoomGestureRecognizer instance) {
+                    instance
+                      ..onStart = (details) {
+                        widget.onBaseScaleChanged(widget.zoomLevel);
+                      }
+                      ..onUpdate = (details) {
+                        // Handle zoom
+                        if (details.scale != 1.0) {
+                          final newZoom = widget.baseScale * details.scale;
+                          widget.onZoomChanged(newZoom.clamp(1.0, 10.0));
+                        }
+
+                        // Handle pan
+                        if (details.focalPointDelta.dx.abs() > 0.1) {
+                          final currentZoom = widget.zoomLevel;
+                          final currentPan = widget.panOffset;
+                          final currentVisibleRange = dataLength / currentZoom;
+                          final currentMaxPanOffset =
+                              (dataLength - currentVisibleRange)
+                                  .clamp(0.0, double.infinity);
+                          final panSensitivity =
+                              dataLength / (400 * currentZoom);
+                          final newPan = (currentPan -
+                                  details.focalPointDelta.dx * panSensitivity)
+                              .clamp(0.0, currentMaxPanOffset);
+                          widget.onPanChanged(newPan);
+                        }
+                      }
+                      ..onEnd = (details) {
+                        widget.onBaseScaleChanged(widget.zoomLevel);
+                      };
+                  },
+                ),
+              },
+              child: Listener(
+                onPointerSignal: (pointerSignal) {
+                  if (pointerSignal is PointerScrollEvent) {
+                    final delta = pointerSignal.scrollDelta.dy;
+                    final newZoom = delta < 0
+                        ? (widget.zoomLevel * 1.1).clamp(1.0, 10.0)
+                        : (widget.zoomLevel / 1.1).clamp(1.0, 10.0);
+                    widget.onZoomChanged(newZoom);
+                  }
+                },
+                child: LineChart(
+                  LineChartData(
+                    gridData: FlGridData(
+                      show: true,
+                      drawVerticalLine: true,
+                      horizontalInterval: 1,
+                      verticalInterval: 1,
+                      getDrawingHorizontalLine: (value) {
+                        return FlLine(
+                          color: Colors.grey.shade200,
+                          strokeWidth: 1,
+                        );
+                      },
+                      getDrawingVerticalLine: (value) {
+                        return FlLine(
+                          color: Colors.grey.shade200,
+                          strokeWidth: 1,
+                        );
+                      },
+                    ),
+                    titlesData: FlTitlesData(
+                      show: true,
+                      rightTitles: AxisTitles(
+                        axisNameWidget: Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Text(
+                            widget.rightLabel,
+                            style: TextStyle(
+                                fontSize: 10,
+                                color: widget.line2Color,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 50,
+                          interval: (maxY2 - minY2) / 5,
+                          getTitlesWidget: (value, meta) {
+                            if (adjustedMaxY1 - adjustedMinY1 == 0) {
+                              return const SizedBox.shrink();
+                            }
+                            final originalValue = ((value - adjustedMinY1) /
+                                        (adjustedMaxY1 - adjustedMinY1)) *
+                                    (maxY2 - minY2) +
+                                minY2;
+
+                            if (originalValue < minY2 - (maxY2 - minY2) * 0.2 ||
+                                originalValue > maxY2 + (maxY2 - minY2) * 0.2) {
+                              return const SizedBox.shrink();
+                            }
+
+                            return Text(
+                              originalValue.toStringAsFixed(0),
+                              style: TextStyle(
+                                  fontSize: 10, color: widget.line2Color),
+                            );
+                          },
+                        ),
+                      ),
+                      topTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 30,
+                          interval: (visibleRange / 10)
+                              .ceilToDouble()
+                              .clamp(1.0, double.infinity),
+                          getTitlesWidget: (value, meta) {
+                            if (value.toInt() >= 0 &&
+                                value.toInt() < widget.weatherData.length) {
+                              final time = DateFormat('HH:mm').format(
+                                  widget.weatherData[value.toInt()].timeStamp);
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Text(
+                                  time,
+                                  style: const TextStyle(fontSize: 10),
+                                ),
+                              );
+                            }
+                            return const Text('');
+                          },
+                        ),
+                      ),
+                      leftTitles: AxisTitles(
+                        axisNameWidget: Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Text(
+                            widget.leftLabel,
+                            style: TextStyle(
+                                fontSize: 10,
+                                color: widget.line1Color,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 50,
+                          getTitlesWidget: (value, meta) {
+                            return Text(
+                              value.toStringAsFixed(1),
+                              style: TextStyle(
+                                  fontSize: 10, color: widget.line1Color),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    borderData: FlBorderData(
+                      show: true,
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    minX: minX,
+                    maxX: maxX,
+                    minY: adjustedMinY1,
+                    maxY: adjustedMaxY1,
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: spots1,
+                        isCurved: true,
+                        color: widget.line1Color,
+                        barWidth: 3,
+                        isStrokeCapRound: true,
+                        dotData: FlDotData(show: widget.zoomLevel > 3),
+                        belowBarData: BarAreaData(show: false),
+                      ),
+                      LineChartBarData(
+                        spots: spots2Normalized,
+                        isCurved: true,
+                        color: widget.line2Color,
+                        barWidth: 3,
+                        isStrokeCapRound: true,
+                        dotData: FlDotData(show: widget.zoomLevel > 3),
+                        belowBarData: BarAreaData(show: false),
+                      ),
+                    ],
+                    lineTouchData: LineTouchData(
+                      touchTooltipData: LineTouchTooltipData(
+                        getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
+                          return touchedBarSpots.map((barSpot) {
+                            final index = barSpot.x.toInt();
+                            if (index < 0 ||
+                                index >= widget.weatherData.length) {
+                              return null;
+                            }
+
+                            final timestamp = DateFormat('dd-MM-yyyy HH:mm')
+                                .format(widget.weatherData[index].timeStamp);
+                            final actualValue1 =
+                                widget.getValue1(widget.weatherData[index]);
+                            final actualValue2 =
+                                widget.getValue2(widget.weatherData[index]);
+
+                            if (barSpot.barIndex == 0) {
+                              return LineTooltipItem(
+                                '$timestamp\n${widget.leftLabel}: ${actualValue1.toStringAsFixed(1)}',
+                                TextStyle(
+                                    color: widget.line1Color,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12),
+                              );
+                            } else {
+                              return LineTooltipItem(
+                                '$timestamp\n${widget.rightLabel}: ${actualValue2.toStringAsFixed(1)}',
+                                TextStyle(
+                                    color: widget.line2Color,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12),
+                              );
+                            }
+                          }).toList();
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildLegendItem(widget.leftLabel, widget.line1Color),
+              const SizedBox(width: 24),
+              _buildLegendItem(widget.rightLabel, widget.line2Color),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLegendItem(String label, Color color) {
+    return Row(
+      children: [
+        Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12),
+        ),
+      ],
+    );
+  }
+}
+
+class _PanZoomGestureRecognizer extends ScaleGestureRecognizer {
+  @override
+  void rejectGesture(int pointer) {
+    acceptGesture(pointer);
   }
 }
