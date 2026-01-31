@@ -88,10 +88,8 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
   List<WeatherData> weatherData = [];
   bool isLoading = false;
   String? errorMessage;
-  final TextEditingController startDateController =
-      TextEditingController(text: '29-01-2026');
-  final TextEditingController endDateController =
-      TextEditingController(text: '29-01-2026');
+  final TextEditingController startDateController = TextEditingController();
+  final TextEditingController endDateController = TextEditingController();
 
   // Zoom states for each chart
   final Map<String, double> zoomLevels = {};
@@ -101,6 +99,10 @@ class _RainfallDashboardState extends State<RainfallDashboard> {
   @override
   void initState() {
     super.initState();
+    // Set both fields to today's date in DD-MM-YYYY format
+    final today = DateFormat('dd-MM-yyyy').format(DateTime.now());
+    startDateController.text = today;
+    endDateController.text = today;
     fetchData();
   }
 

@@ -113,8 +113,8 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
   final TextEditingController deviceBController =
       TextEditingController(text: '2');
 
-  DateTime startDate = DateTime(2026, 1, 29);
-  DateTime endDate = DateTime(2026, 1, 29);
+  DateTime startDate = DateTime.now();
+  DateTime endDate = DateTime.now();
 
   WeatherParameter selectedParameter = WeatherParameter.temperature;
 
