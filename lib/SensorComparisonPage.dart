@@ -389,7 +389,9 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
         ],
       ),
       child: ClipRRect(
+        // ← added
         borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.hardEdge,
         child: Column(
           children: [
             Padding(
@@ -404,9 +406,12 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
             ),
             SizedBox(
               height: 350,
-              child: Padding(
-                padding: const EdgeInsets.only(left: 8, right: 8, bottom: 16),
-                child: _buildChart(),
+              child: ClipRect(
+                // ← added here too
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 8, right: 8, bottom: 16),
+                  child: _buildChart(),
+                ),
               ),
             ),
             Padding(
