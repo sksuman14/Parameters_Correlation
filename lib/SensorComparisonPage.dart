@@ -65,6 +65,21 @@ String parameterLabel(WeatherParameter p) {
   }
 }
 
+String parameterUnit(WeatherParameter p) {
+  switch (p) {
+    case WeatherParameter.temperature:
+      return '°C';
+    case WeatherParameter.humidity:
+      return '%';
+    case WeatherParameter.pressure:
+      return 'hPa';
+    case WeatherParameter.windSpeed:
+      return 'm/s';
+    case WeatherParameter.rainfall:
+      return 'mm';
+  }
+}
+
 double getParameterValue(WeatherData d, WeatherParameter p) {
   switch (p) {
     case WeatherParameter.temperature:
@@ -219,6 +234,37 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     });
   }
 
+  Map<String, double> calculateStatistics() {
+    if (dataA.isEmpty || dataB.isEmpty) {
+      return {
+        'maxDiff': 0.0,
+        'avgDiff': 0.0,
+        'minDiff': 0.0,
+      };
+    }
+
+    final length = min(dataA.length, dataB.length);
+    double maxDiff = 0.0;
+    double minDiff = double.infinity;
+    double sumDiff = 0.0;
+
+    for (int i = 0; i < length; i++) {
+      final valueA = getParameterValue(dataA[i], selectedParameter);
+      final valueB = getParameterValue(dataB[i], selectedParameter);
+      final diff = (valueA - valueB).abs();
+
+      if (diff > maxDiff) maxDiff = diff;
+      if (diff < minDiff) minDiff = diff;
+      sumDiff += diff;
+    }
+
+    return {
+      'maxDiff': maxDiff,
+      'avgDiff': sumDiff / length,
+      'minDiff': minDiff,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -257,6 +303,8 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
             if (!loading && dataA.isNotEmpty && dataB.isNotEmpty) ...[
               const SizedBox(height: 8),
               _buildChartCard(),
+              const SizedBox(height: 16),
+              _buildStatisticsCard(),
             ],
           ],
         ),
@@ -368,6 +416,84 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
         Text(
           label,
           style: const TextStyle(fontSize: 12),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatisticsCard() {
+    final stats = calculateStatistics();
+    final unit = parameterUnit(selectedParameter);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Comparison Statistics',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildStatItem(
+                  'Max Difference',
+                  stats['maxDiff']!,
+                  unit,
+                  Colors.red,
+                  Icons.trending_up,
+                ),
+                _buildStatItem(
+                  'Avg Difference',
+                  stats['avgDiff']!,
+                  unit,
+                  Colors.blue,
+                  Icons.show_chart,
+                ),
+                _buildStatItem(
+                  'Min Difference',
+                  stats['minDiff']!,
+                  unit,
+                  Colors.green,
+                  Icons.trending_down,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatItem(
+      String label, double value, String unit, Color color, IconData icon) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 32),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.grey,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '${value.toStringAsFixed(2)} $unit',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+          textAlign: TextAlign.center,
         ),
       ],
     );
