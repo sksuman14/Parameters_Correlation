@@ -17,6 +17,7 @@ class WeatherData {
   final double currentHumidity;
   final double windSpeed;
   final double rainfallHourly;
+  final double windDirection;
 
   WeatherData({
     required this.timeStamp,
@@ -25,6 +26,7 @@ class WeatherData {
     required this.currentHumidity,
     required this.windSpeed,
     required this.rainfallHourly,
+    required this.windDirection,
   });
 
   factory WeatherData.fromJson(Map<String, dynamic> json) {
@@ -35,6 +37,7 @@ class WeatherData {
       currentHumidity: (json['CurrentHumidity'] ?? 0).toDouble(),
       windSpeed: (json['WindSpeed'] ?? 0).toDouble(),
       rainfallHourly: (json['RainfallHourly'] ?? 0).toDouble(),
+      windDirection: (json['WindDirection'] ?? 0).toDouble(),
     );
   }
 }
@@ -48,6 +51,7 @@ enum WeatherParameter {
   pressure,
   windSpeed,
   rainfall,
+  windDirection,
 }
 
 String parameterLabel(WeatherParameter p) {
@@ -62,6 +66,8 @@ String parameterLabel(WeatherParameter p) {
       return 'Wind Speed (m/s)';
     case WeatherParameter.rainfall:
       return 'Rainfall (mm)';
+    case WeatherParameter.windDirection:
+      return 'Wind Direction (°)';
   }
 }
 
@@ -77,6 +83,8 @@ String parameterUnit(WeatherParameter p) {
       return 'm/s';
     case WeatherParameter.rainfall:
       return 'mm';
+    case WeatherParameter.windDirection:
+      return '°';
   }
 }
 
@@ -92,6 +100,98 @@ double getParameterValue(WeatherData d, WeatherParameter p) {
       return d.windSpeed;
     case WeatherParameter.rainfall:
       return d.rainfallHourly;
+    case WeatherParameter.windDirection:
+      return d.windDirection;
+  }
+}
+
+/// Convert degrees to 16 cardinal directions
+String degreesToDirection(double degrees) {
+  // Normalize degrees to 0-360 range
+  double normalized = degrees % 360;
+  if (normalized < 0) normalized += 360;
+
+  // 16 directions with 22.5° each
+  // N: 348.75-11.25, NNE: 11.25-33.75, NE: 33.75-56.25, ENE: 56.25-78.75,
+  // E: 78.75-101.25, ESE: 101.25-123.75, SE: 123.75-146.25, SSE: 146.25-168.75,
+  // S: 168.75-191.25, SSW: 191.25-213.75, SW: 213.75-236.25, WSW: 236.25-258.75,
+  // W: 258.75-281.25, WNW: 281.25-303.75, NW: 303.75-326.25, NNW: 326.25-348.75
+
+  if (normalized >= 348.75 || normalized < 11.25) {
+    return 'N';
+  } else if (normalized >= 11.25 && normalized < 33.75) {
+    return 'NNE';
+  } else if (normalized >= 33.75 && normalized < 56.25) {
+    return 'NE';
+  } else if (normalized >= 56.25 && normalized < 78.75) {
+    return 'ENE';
+  } else if (normalized >= 78.75 && normalized < 101.25) {
+    return 'E';
+  } else if (normalized >= 101.25 && normalized < 123.75) {
+    return 'ESE';
+  } else if (normalized >= 123.75 && normalized < 146.25) {
+    return 'SE';
+  } else if (normalized >= 146.25 && normalized < 168.75) {
+    return 'SSE';
+  } else if (normalized >= 168.75 && normalized < 191.25) {
+    return 'S';
+  } else if (normalized >= 191.25 && normalized < 213.75) {
+    return 'SSW';
+  } else if (normalized >= 213.75 && normalized < 236.25) {
+    return 'SW';
+  } else if (normalized >= 236.25 && normalized < 258.75) {
+    return 'WSW';
+  } else if (normalized >= 258.75 && normalized < 281.25) {
+    return 'W';
+  } else if (normalized >= 281.25 && normalized < 303.75) {
+    return 'WNW';
+  } else if (normalized >= 303.75 && normalized < 326.25) {
+    return 'NW';
+  } else {
+    return 'NNW';
+  }
+}
+
+/// Get directional arrow showing where wind is coming FROM
+String getWindArrow(double degrees) {
+  // Normalize degrees to 0-360 range
+  double normalized = degrees % 360;
+  if (normalized < 0) normalized += 360;
+
+  // 16 directions with 22.5° each
+  // Arrow points to where wind is COMING FROM
+  if (normalized >= 348.75 || normalized < 11.25) {
+    return '↓'; // Wind from North
+  } else if (normalized >= 11.25 && normalized < 33.75) {
+    return '↙'; // Wind from NNE
+  } else if (normalized >= 33.75 && normalized < 56.25) {
+    return '↙'; // Wind from NE
+  } else if (normalized >= 56.25 && normalized < 78.75) {
+    return '↙'; // Wind from ENE
+  } else if (normalized >= 78.75 && normalized < 101.25) {
+    return '←'; // Wind from East
+  } else if (normalized >= 101.25 && normalized < 123.75) {
+    return '↖'; // Wind from ESE
+  } else if (normalized >= 123.75 && normalized < 146.25) {
+    return '↖'; // Wind from SE
+  } else if (normalized >= 146.25 && normalized < 168.75) {
+    return '↖'; // Wind from SSE
+  } else if (normalized >= 168.75 && normalized < 191.25) {
+    return '↑'; // Wind from South
+  } else if (normalized >= 191.25 && normalized < 213.75) {
+    return '↗'; // Wind from SSW
+  } else if (normalized >= 213.75 && normalized < 236.25) {
+    return '↗'; // Wind from SW
+  } else if (normalized >= 236.25 && normalized < 258.75) {
+    return '↗'; // Wind from WSW
+  } else if (normalized >= 258.75 && normalized < 281.25) {
+    return '→'; // Wind from West
+  } else if (normalized >= 281.25 && normalized < 303.75) {
+    return '↘'; // Wind from WNW
+  } else if (normalized >= 303.75 && normalized < 326.25) {
+    return '↘'; // Wind from NW
+  } else {
+    return '↘'; // Wind from NNW
   }
 }
 
@@ -274,6 +374,12 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
         actions: [
+          if (!loading && dataA.isNotEmpty && dataB.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Refresh Data',
+              onPressed: fetchComparisonData,
+            ),
           if (!loading &&
               dataA.isNotEmpty &&
               dataB.isNotEmpty &&
@@ -424,6 +530,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
   Widget _buildStatisticsCard() {
     final stats = calculateStatistics();
     final unit = parameterUnit(selectedParameter);
+    final isWindDirection = selectedParameter == WeatherParameter.windDirection;
 
     return Card(
       child: Padding(
@@ -439,6 +546,12 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
               ),
             ),
             const SizedBox(height: 16),
+            if (isWindDirection) ...[
+              _buildWindDirectionInfo(),
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 16),
+            ],
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -468,6 +581,99 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildWindDirectionInfo() {
+    if (dataA.isEmpty || dataB.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // Get most recent wind directions
+    final latestA = dataA.last.windDirection;
+    final latestB = dataB.last.windDirection;
+
+    return Column(
+      children: [
+        const Text(
+          'Current Wind Direction',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildWindDirectionItem(
+              'Device ${deviceAId ?? "A"}',
+              latestA,
+              Colors.blue,
+            ),
+            _buildWindDirectionItem(
+              'Device ${deviceBId ?? "B"}',
+              latestB,
+              Colors.orange,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWindDirectionItem(String device, double degrees, Color color) {
+    final direction = degreesToDirection(degrees);
+    final arrow = getWindArrow(degrees);
+    return Column(
+      children: [
+        Text(
+          device,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.grey,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color, width: 2),
+          ),
+          child: Column(
+            children: [
+              Text(
+                arrow,
+                style: TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                  height: 1.0,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                direction,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+              Text(
+                '${degrees.toStringAsFixed(1)}°',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -725,9 +931,20 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
                       final valueB =
                           getParameterValue(dataB[index], selectedParameter);
 
+                      // Format value based on parameter type
+                      String formatValue(double value) {
+                        if (selectedParameter ==
+                            WeatherParameter.windDirection) {
+                          final direction = degreesToDirection(value);
+                          final arrow = getWindArrow(value);
+                          return '${value.toStringAsFixed(1)}° ($direction) $arrow';
+                        }
+                        return value.toStringAsFixed(1);
+                      }
+
                       if (spot.barIndex == 0) {
                         return LineTooltipItem(
-                          '$timestamp\nDevice ${deviceAId ?? "A"}: ${valueA.toStringAsFixed(1)}',
+                          '$timestamp\nDevice ${deviceAId ?? "A"}: ${formatValue(valueA)}',
                           const TextStyle(
                             color: Colors.blue,
                             fontWeight: FontWeight.bold,
@@ -736,7 +953,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
                         );
                       } else {
                         return LineTooltipItem(
-                          '$timestamp\nDevice ${deviceBId ?? "B"}: ${valueB.toStringAsFixed(1)}',
+                          '$timestamp\nDevice ${deviceBId ?? "B"}: ${formatValue(valueB)}',
                           const TextStyle(
                             color: Colors.orange,
                             fontWeight: FontWeight.bold,
