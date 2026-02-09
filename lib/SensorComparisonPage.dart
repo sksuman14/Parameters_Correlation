@@ -43,6 +43,19 @@ class WeatherData {
 }
 
 /// =======================
+/// MATCHED DATA POINT
+/// =======================
+class MatchedDataPoint {
+  final DateTime timestamp;
+  final Map<int, WeatherData> deviceData; // deviceId -> WeatherData
+
+  MatchedDataPoint({
+    required this.timestamp,
+    required this.deviceData,
+  });
+}
+
+/// =======================
 /// DEVICE DATA MODEL
 /// =======================
 class DeviceData {
@@ -193,6 +206,83 @@ String getWindArrow(double degrees) {
 }
 
 /// =======================
+/// TIMESTAMP MATCHER
+/// =======================
+class TimestampMatcher {
+  static const int maxTimeDifferenceSeconds = 359; // 5 minutes 59 seconds
+
+  /// Match data points across devices based on timestamps
+  /// Only matches timestamps within maxTimeDifferenceSeconds
+  static List<MatchedDataPoint> matchTimestamps(List<DeviceData> devicesData) {
+    if (devicesData.isEmpty) return [];
+
+    List<MatchedDataPoint> matchedPoints = [];
+
+    // Get all unique timestamps across all devices
+    Set<DateTime> allTimestamps = {};
+    for (var device in devicesData) {
+      for (var data in device.data) {
+        allTimestamps.add(data.timeStamp);
+      }
+    }
+
+    // Sort timestamps
+    List<DateTime> sortedTimestamps = allTimestamps.toList()..sort();
+
+    // For each timestamp, find matching data from all devices
+    for (var timestamp in sortedTimestamps) {
+      Map<int, WeatherData> deviceMatches = {};
+
+      for (var device in devicesData) {
+        // Find the closest data point within the time threshold
+        WeatherData? closestMatch = _findClosestMatch(
+          timestamp,
+          device.data,
+          maxTimeDifferenceSeconds,
+        );
+
+        if (closestMatch != null) {
+          deviceMatches[device.deviceId] = closestMatch;
+        }
+      }
+
+      // Only add if we have matches from at least 2 devices
+      if (deviceMatches.length >= 2) {
+        matchedPoints.add(MatchedDataPoint(
+          timestamp: timestamp,
+          deviceData: deviceMatches,
+        ));
+      }
+    }
+
+    return matchedPoints;
+  }
+
+  /// Find the closest data point to the target timestamp within the threshold
+  static WeatherData? _findClosestMatch(
+    DateTime targetTimestamp,
+    List<WeatherData> dataList,
+    int maxDifferenceSeconds,
+  ) {
+    WeatherData? closestMatch;
+    Duration? smallestDifference;
+
+    for (var data in dataList) {
+      final difference = targetTimestamp.difference(data.timeStamp).abs();
+
+      if (difference.inSeconds <= maxDifferenceSeconds) {
+        if (smallestDifference == null || difference < smallestDifference) {
+          smallestDifference = difference;
+          closestMatch = data;
+        }
+      }
+    }
+
+    return closestMatch;
+  }
+}
+
+/// =======================
 /// COLOR PALETTE
 /// =======================
 class ColorPalette {
@@ -259,6 +349,9 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
   // Store data for each device
   List<DeviceData> devicesData = [];
 
+  // Matched data points
+  List<MatchedDataPoint> matchedDataPoints = [];
+
   bool loading = false;
   String? error;
 
@@ -321,6 +414,8 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     setState(() {
       selectedDeviceIds.remove(deviceId);
       devicesData.removeWhere((d) => d.deviceId == deviceId);
+      // Recalculate matched points
+      matchedDataPoints = TimestampMatcher.matchTimestamps(devicesData);
     });
   }
 
@@ -369,8 +464,12 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
         ));
       }
 
+      // Match timestamps across devices
+      final matched = TimestampMatcher.matchTimestamps(fetchedData);
+
       setState(() {
         devicesData = fetchedData;
+        matchedDataPoints = matched;
         loading = false;
       });
     } catch (e) {
@@ -390,17 +489,21 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
   }
 
   Map<String, Map<int, double>> calculateStatistics() {
-    if (devicesData.isEmpty) {
+    if (matchedDataPoints.isEmpty) {
       return {};
     }
 
     Map<int, List<double>> deviceValues = {};
 
-    // Collect all values for each device
-    for (var device in devicesData) {
-      deviceValues[device.deviceId] = device.data
-          .map((d) => getParameterValue(d, selectedParameter))
-          .toList();
+    // Collect values only from matched data points
+    for (var matchedPoint in matchedDataPoints) {
+      for (var entry in matchedPoint.deviceData.entries) {
+        final deviceId = entry.key;
+        final data = entry.value;
+        final value = getParameterValue(data, selectedParameter);
+
+        deviceValues.putIfAbsent(deviceId, () => []).add(value);
+      }
     }
 
     // Calculate statistics for each device
@@ -426,42 +529,41 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
   }
 
   Map<String, Map<String, double>> calculateDifferenceStatistics() {
-    if (devicesData.length < 2) {
+    if (matchedDataPoints.isEmpty || selectedDeviceIds.length < 2) {
       return {};
     }
 
     Map<String, Map<String, double>> diffStats = {};
 
-    // Compare each pair of devices
-    for (int i = 0; i < devicesData.length - 1; i++) {
-      for (int j = i + 1; j < devicesData.length; j++) {
-        final deviceA = devicesData[i];
-        final deviceB = devicesData[j];
+    // Compare each pair of devices using matched data points
+    for (int i = 0; i < selectedDeviceIds.length - 1; i++) {
+      for (int j = i + 1; j < selectedDeviceIds.length; j++) {
+        final deviceIdA = selectedDeviceIds[i];
+        final deviceIdB = selectedDeviceIds[j];
 
-        final length = min(deviceA.data.length, deviceB.data.length);
+        List<double> differences = [];
 
-        if (length == 0) continue;
+        // Calculate differences only for matched timestamps
+        for (var matchedPoint in matchedDataPoints) {
+          final dataA = matchedPoint.deviceData[deviceIdA];
+          final dataB = matchedPoint.deviceData[deviceIdB];
 
-        double maxDiff = 0.0;
-        double minDiff = double.infinity;
-        double sumDiff = 0.0;
-
-        for (int k = 0; k < length; k++) {
-          final valueA = getParameterValue(deviceA.data[k], selectedParameter);
-          final valueB = getParameterValue(deviceB.data[k], selectedParameter);
-          final diff = (valueA - valueB).abs();
-
-          if (diff > maxDiff) maxDiff = diff;
-          if (diff < minDiff) minDiff = diff;
-          sumDiff += diff;
+          // Both devices must have data at this timestamp
+          if (dataA != null && dataB != null) {
+            final valueA = getParameterValue(dataA, selectedParameter);
+            final valueB = getParameterValue(dataB, selectedParameter);
+            differences.add((valueA - valueB).abs());
+          }
         }
 
-        final pairKey = '${deviceA.deviceId}-${deviceB.deviceId}';
-        diffStats[pairKey] = {
-          'maxDiff': maxDiff,
-          'avgDiff': sumDiff / length,
-          'minDiff': minDiff,
-        };
+        if (differences.isNotEmpty) {
+          final pairKey = '$deviceIdA-$deviceIdB';
+          diffStats[pairKey] = {
+            'maxDiff': differences.reduce(max),
+            'avgDiff': differences.reduce((a, b) => a + b) / differences.length,
+            'minDiff': differences.reduce(min),
+          };
+        }
       }
     }
 
@@ -517,11 +619,53 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
             if (error != null)
               Text(error!, style: const TextStyle(color: Colors.red)),
             if (!loading && devicesData.isNotEmpty) ...[
-              const SizedBox(height: 8),
+              _buildMatchingInfo(),
+              const SizedBox(height: 16),
               _buildChartCard(),
               const SizedBox(height: 16),
               _buildStatisticsCard(),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMatchingInfo() {
+    final totalOriginal = devicesData.fold<int>(
+      0,
+      (sum, device) => sum + device.data.length,
+    );
+    final matchedCount = matchedDataPoints.length;
+
+    return Card(
+      color: Colors.blue.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            const Icon(Icons.info_outline, color: Colors.blue),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Timestamp Matching Info',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$matchedCount matched timestamps (max 5 min 59 sec difference)\n'
+                    'Total data points across all devices: $totalOriginal',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -687,7 +831,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Statistics',
+              'Statistics (Based on Matched Timestamps)',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -1050,12 +1194,11 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
   }
 
   Widget _buildChart() {
-    if (devicesData.isEmpty) {
-      return const Center(child: Text('No data available'));
+    if (matchedDataPoints.isEmpty) {
+      return const Center(child: Text('No matched data points available'));
     }
 
-    // Find the maximum data length across all devices
-    int maxLength = devicesData.map((d) => d.data.length).reduce(max);
+    final maxLength = matchedDataPoints.length;
 
     if (maxLength == 0) {
       return const Center(child: Text('No data points available'));
@@ -1069,29 +1212,37 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     final minX = clampedPanOffset;
     final maxX = min(clampedPanOffset + visibleRange, maxLength.toDouble());
 
-    // Create line data for each device
+    // Create line data for each device from matched points
     List<LineChartBarData> lineBars = [];
 
     for (var device in devicesData) {
       final spots = <FlSpot>[];
-      for (int i = 0; i < device.data.length; i++) {
-        spots.add(
-          FlSpot(i.toDouble(),
-              getParameterValue(device.data[i], selectedParameter)),
-        );
+
+      for (int i = 0; i < matchedDataPoints.length; i++) {
+        final matchedPoint = matchedDataPoints[i];
+        final deviceData = matchedPoint.deviceData[device.deviceId];
+
+        if (deviceData != null) {
+          spots.add(
+            FlSpot(
+                i.toDouble(), getParameterValue(deviceData, selectedParameter)),
+          );
+        }
       }
 
-      lineBars.add(
-        LineChartBarData(
-          spots: spots,
-          isCurved: true,
-          color: device.color,
-          barWidth: 3,
-          isStrokeCapRound: true,
-          dotData: FlDotData(show: zoomLevel > 3),
-          belowBarData: BarAreaData(show: false),
-        ),
-      );
+      if (spots.isNotEmpty) {
+        lineBars.add(
+          LineChartBarData(
+            spots: spots,
+            isCurved: true,
+            color: device.color,
+            barWidth: 3,
+            isStrokeCapRound: true,
+            dotData: FlDotData(show: zoomLevel > 3),
+            belowBarData: BarAreaData(show: false),
+          ),
+        );
+      }
     }
 
     return ClipRect(
@@ -1192,12 +1343,9 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
                     interval: max(1, (visibleRange / 10).ceilToDouble()),
                     getTitlesWidget: (value, meta) {
                       final index = value.toInt();
-                      // Use the first device's timestamps as reference
-                      if (devicesData.isNotEmpty &&
-                          index >= 0 &&
-                          index < devicesData[0].data.length) {
+                      if (index >= 0 && index < matchedDataPoints.length) {
                         final time = DateFormat('HH:mm')
-                            .format(devicesData[0].data[index].timeStamp);
+                            .format(matchedDataPoints[index].timestamp);
                         return Padding(
                           padding: const EdgeInsets.only(top: 8),
                           child: Text(
@@ -1218,18 +1366,28 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
                   fitInsideVertically: true,
                   getTooltipItems: (touchedSpots) {
                     return touchedSpots.map((spot) {
+                      final index = spot.x.toInt();
+                      if (index < 0 || index >= matchedDataPoints.length) {
+                        return null;
+                      }
+
+                      final matchedPoint = matchedDataPoints[index];
+
                       final deviceIndex = spot.barIndex;
                       if (deviceIndex >= devicesData.length) return null;
 
                       final device = devicesData[deviceIndex];
-                      final index = spot.x.toInt();
+                      final deviceData =
+                          matchedPoint.deviceData[device.deviceId];
 
-                      if (index < 0 || index >= device.data.length) return null;
+                      if (deviceData == null) return null;
 
-                      final timestamp = DateFormat('dd-MM-yyyy HH:mm')
-                          .format(device.data[index].timeStamp);
-                      final value = getParameterValue(
-                          device.data[index], selectedParameter);
+                      // Use the actual timestamp from the device data
+                      final actualTimestamp = DateFormat('dd-MM-yyyy HH:mm:ss')
+                          .format(deviceData.timeStamp);
+
+                      final value =
+                          getParameterValue(deviceData, selectedParameter);
 
                       String formatValue(double value) {
                         if (selectedParameter ==
@@ -1242,7 +1400,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
                       }
 
                       return LineTooltipItem(
-                        '$timestamp\nDevice ${device.deviceId}: ${formatValue(value)}',
+                        '$actualTimestamp\nDevice ${device.deviceId}: ${formatValue(value)}',
                         TextStyle(
                           color: device.color,
                           fontWeight: FontWeight.bold,
