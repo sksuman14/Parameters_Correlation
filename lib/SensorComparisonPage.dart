@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart'; // Add this import for HardwareKeyboard
 import 'package:http/http.dart' as http;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -344,7 +345,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
   DateTime startDate = DateTime.now();
   DateTime endDate = DateTime.now();
 
-  WeatherParameter selectedParameter = WeatherParameter.temperature;
+  List<WeatherParameter> selectedParameters = [WeatherParameter.temperature];
 
   // Store data for each device
   List<DeviceData> devicesData = [];
@@ -488,86 +489,100 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     });
   }
 
-  Map<String, Map<int, double>> calculateStatistics() {
+  Map<WeatherParameter, Map<String, Map<int, double>>> calculateStatistics() {
     if (matchedDataPoints.isEmpty) {
       return {};
     }
 
-    Map<int, List<double>> deviceValues = {};
+    Map<WeatherParameter, Map<String, Map<int, double>>> allStats = {};
 
-    // Collect values only from matched data points
-    for (var matchedPoint in matchedDataPoints) {
-      for (var entry in matchedPoint.deviceData.entries) {
+    for (var parameter in selectedParameters) {
+      Map<int, List<double>> deviceValues = {};
+
+      // Collect values only from matched data points
+      for (var matchedPoint in matchedDataPoints) {
+        for (var entry in matchedPoint.deviceData.entries) {
+          final deviceId = entry.key;
+          final data = entry.value;
+          final value = getParameterValue(data, parameter);
+
+          deviceValues.putIfAbsent(deviceId, () => []).add(value);
+        }
+      }
+
+      // Calculate statistics for each device
+      Map<String, Map<int, double>> stats = {
+        'max': {},
+        'min': {},
+        'avg': {},
+      };
+
+      for (var entry in deviceValues.entries) {
         final deviceId = entry.key;
-        final data = entry.value;
-        final value = getParameterValue(data, selectedParameter);
+        final values = entry.value;
 
-        deviceValues.putIfAbsent(deviceId, () => []).add(value);
+        if (values.isNotEmpty) {
+          stats['max']![deviceId] = values.reduce(max);
+          stats['min']![deviceId] = values.reduce(min);
+          stats['avg']![deviceId] =
+              values.reduce((a, b) => a + b) / values.length;
+        }
       }
+
+      allStats[parameter] = stats;
     }
 
-    // Calculate statistics for each device
-    Map<String, Map<int, double>> stats = {
-      'max': {},
-      'min': {},
-      'avg': {},
-    };
-
-    for (var entry in deviceValues.entries) {
-      final deviceId = entry.key;
-      final values = entry.value;
-
-      if (values.isNotEmpty) {
-        stats['max']![deviceId] = values.reduce(max);
-        stats['min']![deviceId] = values.reduce(min);
-        stats['avg']![deviceId] =
-            values.reduce((a, b) => a + b) / values.length;
-      }
-    }
-
-    return stats;
+    return allStats;
   }
 
-  Map<String, Map<String, double>> calculateDifferenceStatistics() {
+  Map<WeatherParameter, Map<String, Map<String, double>>>
+      calculateDifferenceStatistics() {
     if (matchedDataPoints.isEmpty || selectedDeviceIds.length < 2) {
       return {};
     }
 
-    Map<String, Map<String, double>> diffStats = {};
+    Map<WeatherParameter, Map<String, Map<String, double>>> allDiffStats = {};
 
-    // Compare each pair of devices using matched data points
-    for (int i = 0; i < selectedDeviceIds.length - 1; i++) {
-      for (int j = i + 1; j < selectedDeviceIds.length; j++) {
-        final deviceIdA = selectedDeviceIds[i];
-        final deviceIdB = selectedDeviceIds[j];
+    for (var parameter in selectedParameters) {
+      Map<String, Map<String, double>> diffStats = {};
 
-        List<double> differences = [];
+      // Compare each pair of devices using matched data points
+      for (int i = 0; i < selectedDeviceIds.length - 1; i++) {
+        for (int j = i + 1; j < selectedDeviceIds.length; j++) {
+          final deviceIdA = selectedDeviceIds[i];
+          final deviceIdB = selectedDeviceIds[j];
 
-        // Calculate differences only for matched timestamps
-        for (var matchedPoint in matchedDataPoints) {
-          final dataA = matchedPoint.deviceData[deviceIdA];
-          final dataB = matchedPoint.deviceData[deviceIdB];
+          List<double> differences = [];
 
-          // Both devices must have data at this timestamp
-          if (dataA != null && dataB != null) {
-            final valueA = getParameterValue(dataA, selectedParameter);
-            final valueB = getParameterValue(dataB, selectedParameter);
-            differences.add((valueA - valueB).abs());
+          // Calculate differences only for matched timestamps
+          for (var matchedPoint in matchedDataPoints) {
+            final dataA = matchedPoint.deviceData[deviceIdA];
+            final dataB = matchedPoint.deviceData[deviceIdB];
+
+            // Both devices must have data at this timestamp
+            if (dataA != null && dataB != null) {
+              final valueA = getParameterValue(dataA, parameter);
+              final valueB = getParameterValue(dataB, parameter);
+              differences.add((valueA - valueB).abs());
+            }
+          }
+
+          if (differences.isNotEmpty) {
+            final pairKey = '$deviceIdA-$deviceIdB';
+            diffStats[pairKey] = {
+              'maxDiff': differences.reduce(max),
+              'avgDiff':
+                  differences.reduce((a, b) => a + b) / differences.length,
+              'minDiff': differences.reduce(min),
+            };
           }
         }
-
-        if (differences.isNotEmpty) {
-          final pairKey = '$deviceIdA-$deviceIdB';
-          diffStats[pairKey] = {
-            'maxDiff': differences.reduce(max),
-            'avgDiff': differences.reduce((a, b) => a + b) / differences.length,
-            'minDiff': differences.reduce(min),
-          };
-        }
       }
+
+      allDiffStats[parameter] = diffStats;
     }
 
-    return diffStats;
+    return allDiffStats;
   }
 
   @override
@@ -619,53 +634,15 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
             if (error != null)
               Text(error!, style: const TextStyle(color: Colors.red)),
             if (!loading && devicesData.isNotEmpty) ...[
-              _buildMatchingInfo(),
-              const SizedBox(height: 16),
-              _buildChartCard(),
-              const SizedBox(height: 16),
+              // Show charts for each selected parameter
+              ...selectedParameters.map((parameter) => Column(
+                    children: [
+                      _buildChartCard(parameter),
+                      const SizedBox(height: 16),
+                    ],
+                  )),
               _buildStatisticsCard(),
             ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMatchingInfo() {
-    final totalOriginal = devicesData.fold<int>(
-      0,
-      (sum, device) => sum + device.data.length,
-    );
-    final matchedCount = matchedDataPoints.length;
-
-    return Card(
-      color: Colors.blue.shade50,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            const Icon(Icons.info_outline, color: Colors.blue),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Timestamp Matching Info',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$matchedCount matched timestamps (max 5 min 59 sec difference)\n'
-                    'Total data points across all devices: $totalOriginal',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),
@@ -739,23 +716,49 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            DropdownButtonFormField<WeatherParameter>(
-              value: selectedParameter,
-              items: WeatherParameter.values
-                  .map(
-                    (p) => DropdownMenuItem(
-                      value: p,
-                      child: Text(parameterLabel(p)),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (v) => setState(() => selectedParameter = v!),
-              decoration: const InputDecoration(
-                labelText: 'Parameter',
-                border: OutlineInputBorder(),
+            const Text(
+              'Select Parameters',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
               ),
             ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: WeatherParameter.values.map((parameter) {
+                final isSelected = selectedParameters.contains(parameter);
+                return FilterChip(
+                  label: Text(parameterLabel(parameter)),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    setState(() {
+                      if (selected) {
+                        selectedParameters.add(parameter);
+                      } else {
+                        if (selectedParameters.length > 1) {
+                          selectedParameters.remove(parameter);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                  'At least one parameter must be selected'),
+                            ),
+                          );
+                        }
+                      }
+                    });
+                  },
+                  selectedColor: Colors.deepPurple.withOpacity(0.3),
+                  checkmarkColor: Colors.deepPurple,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+            const Divider(),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -819,10 +822,8 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
   }
 
   Widget _buildStatisticsCard() {
-    final stats = calculateStatistics();
-    final diffStats = calculateDifferenceStatistics();
-    final unit = parameterUnit(selectedParameter);
-    final isWindDirection = selectedParameter == WeatherParameter.windDirection;
+    final allStats = calculateStatistics();
+    final allDiffStats = calculateDifferenceStatistics();
 
     return Card(
       child: Padding(
@@ -838,45 +839,82 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
               ),
             ),
             const SizedBox(height: 16),
-            if (isWindDirection) ...[
-              _buildWindDirectionInfo(),
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 16),
-            ],
-            // Individual device statistics
-            const Text(
-              'Individual Device Values',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.deepPurple,
-              ),
-            ),
-            const SizedBox(height: 12),
-            _buildStatSection('Maximum', stats['max'] ?? {}, unit, Colors.red),
-            const SizedBox(height: 12),
-            _buildStatSection('Average', stats['avg'] ?? {}, unit, Colors.blue),
-            const SizedBox(height: 12),
-            _buildStatSection(
-                'Minimum', stats['min'] ?? {}, unit, Colors.green),
+            // Show statistics for each parameter
+            ...selectedParameters.map((parameter) {
+              final stats = allStats[parameter] ?? {};
+              final diffStats = allDiffStats[parameter] ?? {};
+              final unit = parameterUnit(parameter);
+              final isWindDirection =
+                  parameter == WeatherParameter.windDirection;
 
-            // Difference statistics (only if 2+ devices)
-            if (diffStats.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              const Divider(),
-              const SizedBox(height: 16),
-              const Text(
-                'Device Comparison Differences',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.deepPurple,
-                ),
-              ),
-              const SizedBox(height: 12),
-              _buildDifferenceStatistics(diffStats, unit),
-            ],
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Parameter header
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.deepPurple.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      parameterLabel(parameter),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.deepPurple,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (isWindDirection) ...[
+                    _buildWindDirectionInfo(),
+                    const SizedBox(height: 16),
+                  ],
+                  // Individual device statistics
+                  const Text(
+                    'Individual Device Values',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.deepPurple,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildStatSection(
+                      'Maximum', stats['max'] ?? {}, unit, Colors.red),
+                  const SizedBox(height: 12),
+                  _buildStatSection(
+                      'Average', stats['avg'] ?? {}, unit, Colors.blue),
+                  const SizedBox(height: 12),
+                  _buildStatSection(
+                      'Minimum', stats['min'] ?? {}, unit, Colors.green),
+
+                  // Difference statistics (only if 2+ devices)
+                  if (diffStats.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Device Comparison Differences',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.deepPurple,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildDifferenceStatistics(diffStats, unit),
+                  ],
+
+                  // Divider between parameters
+                  if (parameter != selectedParameters.last) ...[
+                    const SizedBox(height: 24),
+                    const Divider(thickness: 2),
+                    const SizedBox(height: 24),
+                  ],
+                ],
+              );
+            }),
           ],
         ),
       ),
@@ -1149,7 +1187,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     );
   }
 
-  Widget _buildChartCard() {
+  Widget _buildChartCard(WeatherParameter parameter) {
     return Container(
       margin: const EdgeInsets.all(6),
       decoration: BoxDecoration(
@@ -1169,19 +1207,32 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
         children: [
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: Text(
-              parameterLabel(selectedParameter),
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+            child: Column(
+              children: [
+                Text(
+                  parameterLabel(parameter),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                // Text(
+                //   'Hold Shift + Scroll to zoom',
+                //   style: TextStyle(
+                //     fontSize: 12,
+                //     color: Colors.grey.shade600,
+                //     fontStyle: FontStyle.italic,
+                //   ),
+                // ),
+              ],
             ),
           ),
           SizedBox(
             height: 350,
             child: ClipRect(
               clipBehavior: Clip.hardEdge,
-              child: _buildChart(),
+              child: _buildChart(parameter),
             ),
           ),
           Padding(
@@ -1193,7 +1244,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     );
   }
 
-  Widget _buildChart() {
+  Widget _buildChart(WeatherParameter parameter) {
     if (matchedDataPoints.isEmpty) {
       return const Center(child: Text('No matched data points available'));
     }
@@ -1224,8 +1275,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
 
         if (deviceData != null) {
           spots.add(
-            FlSpot(
-                i.toDouble(), getParameterValue(deviceData, selectedParameter)),
+            FlSpot(i.toDouble(), getParameterValue(deviceData, parameter)),
           );
         }
       }
@@ -1284,14 +1334,19 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
         child: Listener(
           onPointerSignal: (pointerSignal) {
             if (pointerSignal is PointerScrollEvent) {
-              final delta = pointerSignal.scrollDelta.dy;
-              setState(() {
-                if (delta < 0) {
-                  zoomLevel = min(maxZoom, zoomLevel * 1.1);
-                } else {
-                  zoomLevel = max(minZoom, zoomLevel / 1.1);
-                }
-              });
+              // Only zoom if Shift key is pressed
+              if (HardwareKeyboard.instance.isShiftPressed) {
+                final delta = pointerSignal.scrollDelta.dy;
+                setState(() {
+                  if (delta < 0) {
+                    zoomLevel = min(maxZoom, zoomLevel * 1.1);
+                  } else {
+                    zoomLevel = max(minZoom, zoomLevel / 1.1);
+                  }
+                });
+              }
+              // If Shift is not pressed, allow normal scroll behavior
+              // by not consuming the event
             }
           },
           child: LineChart(
@@ -1318,7 +1373,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
                   axisNameWidget: Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: Text(
-                      parameterLabel(selectedParameter),
+                      parameterLabel(parameter),
                       style: const TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
@@ -1386,12 +1441,10 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
                       final actualTimestamp = DateFormat('dd-MM-yyyy HH:mm:ss')
                           .format(deviceData.timeStamp);
 
-                      final value =
-                          getParameterValue(deviceData, selectedParameter);
+                      final value = getParameterValue(deviceData, parameter);
 
                       String formatValue(double value) {
-                        if (selectedParameter ==
-                            WeatherParameter.windDirection) {
+                        if (parameter == WeatherParameter.windDirection) {
                           final direction = degreesToDirection(value);
                           final arrow = getWindArrow(value);
                           return '${value.toStringAsFixed(1)}° ($direction) $arrow';
