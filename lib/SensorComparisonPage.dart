@@ -1216,15 +1216,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 4),
-                // Text(
-                //   'Hold Shift + Scroll to zoom',
-                //   style: TextStyle(
-                //     fontSize: 12,
-                //     color: Colors.grey.shade600,
-                //     fontStyle: FontStyle.italic,
-                //   ),
-                // ),
               ],
             ),
           ),
