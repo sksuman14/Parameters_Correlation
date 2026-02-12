@@ -207,6 +207,21 @@ String getWindArrow(double degrees) {
 }
 
 /// =======================
+/// HELPER CLASS FOR TIMESTAMP MATCHING
+/// =======================
+class _TimestampedPoint {
+  final DateTime timestamp;
+  final int deviceId;
+  final WeatherData data;
+
+  _TimestampedPoint({
+    required this.timestamp,
+    required this.deviceId,
+    required this.data,
+  });
+}
+
+/// =======================
 /// TIMESTAMP MATCHER
 /// =======================
 class TimestampMatcher {
@@ -214,72 +229,68 @@ class TimestampMatcher {
 
   /// Match data points across devices based on timestamps
   /// Only matches timestamps within maxTimeDifferenceSeconds
+  /// Uses a clustering approach to prevent duplicates
   static List<MatchedDataPoint> matchTimestamps(List<DeviceData> devicesData) {
     if (devicesData.isEmpty) return [];
 
     List<MatchedDataPoint> matchedPoints = [];
 
-    // Get all unique timestamps across all devices
-    Set<DateTime> allTimestamps = {};
+    // Collect all data points with their device ID
+    List<_TimestampedPoint> allPoints = [];
     for (var device in devicesData) {
       for (var data in device.data) {
-        allTimestamps.add(data.timeStamp);
+        allPoints.add(_TimestampedPoint(
+          timestamp: data.timeStamp,
+          deviceId: device.deviceId,
+          data: data,
+        ));
       }
     }
 
-    // Sort timestamps
-    List<DateTime> sortedTimestamps = allTimestamps.toList()..sort();
+    // Sort by timestamp
+    allPoints.sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
-    // For each timestamp, find matching data from all devices
-    for (var timestamp in sortedTimestamps) {
-      Map<int, WeatherData> deviceMatches = {};
+    // Track which points have been used
+    Set<int> usedIndices = {};
 
-      for (var device in devicesData) {
-        // Find the closest data point within the time threshold
-        WeatherData? closestMatch = _findClosestMatch(
-          timestamp,
-          device.data,
-          maxTimeDifferenceSeconds,
-        );
+    // Cluster points that are close together
+    for (int i = 0; i < allPoints.length; i++) {
+      if (usedIndices.contains(i)) continue;
 
-        if (closestMatch != null) {
-          deviceMatches[device.deviceId] = closestMatch;
+      final currentPoint = allPoints[i];
+      Map<int, WeatherData> deviceMatches = {
+        currentPoint.deviceId: currentPoint.data,
+      };
+      usedIndices.add(i);
+
+      // Look ahead for matching timestamps from other devices
+      for (int j = i + 1; j < allPoints.length; j++) {
+        if (usedIndices.contains(j)) continue;
+
+        final otherPoint = allPoints[j];
+        final timeDiff =
+            otherPoint.timestamp.difference(currentPoint.timestamp).abs();
+
+        // If time difference is too large, stop looking ahead
+        if (timeDiff.inSeconds > maxTimeDifferenceSeconds) break;
+
+        // If we don't have this device yet, add it
+        if (!deviceMatches.containsKey(otherPoint.deviceId)) {
+          deviceMatches[otherPoint.deviceId] = otherPoint.data;
+          usedIndices.add(j);
         }
       }
 
       // Only add if we have matches from at least 2 devices
       if (deviceMatches.length >= 2) {
         matchedPoints.add(MatchedDataPoint(
-          timestamp: timestamp,
+          timestamp: currentPoint.timestamp,
           deviceData: deviceMatches,
         ));
       }
     }
 
     return matchedPoints;
-  }
-
-  /// Find the closest data point to the target timestamp within the threshold
-  static WeatherData? _findClosestMatch(
-    DateTime targetTimestamp,
-    List<WeatherData> dataList,
-    int maxDifferenceSeconds,
-  ) {
-    WeatherData? closestMatch;
-    Duration? smallestDifference;
-
-    for (var data in dataList) {
-      final difference = targetTimestamp.difference(data.timeStamp).abs();
-
-      if (difference.inSeconds <= maxDifferenceSeconds) {
-        if (smallestDifference == null || difference < smallestDifference) {
-          smallestDifference = difference;
-          closestMatch = data;
-        }
-      }
-    }
-
-    return closestMatch;
   }
 }
 
