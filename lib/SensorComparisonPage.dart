@@ -3,7 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/services.dart'; // Add this import for HardwareKeyboard
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -45,6 +45,7 @@ class WeatherData {
 
 /// =======================
 /// MATCHED DATA POINT
+/// (used only for statistics — both devices must have data)
 /// =======================
 class MatchedDataPoint {
   final DateTime timestamp;
@@ -139,39 +140,22 @@ String degreesToDirection(double degrees) {
   double normalized = degrees % 360;
   if (normalized < 0) normalized += 360;
 
-  if (normalized >= 348.75 || normalized < 11.25) {
-    return 'N';
-  } else if (normalized >= 11.25 && normalized < 33.75) {
-    return 'NNE';
-  } else if (normalized >= 33.75 && normalized < 56.25) {
-    return 'NE';
-  } else if (normalized >= 56.25 && normalized < 78.75) {
-    return 'ENE';
-  } else if (normalized >= 78.75 && normalized < 101.25) {
-    return 'E';
-  } else if (normalized >= 101.25 && normalized < 123.75) {
-    return 'ESE';
-  } else if (normalized >= 123.75 && normalized < 146.25) {
-    return 'SE';
-  } else if (normalized >= 146.25 && normalized < 168.75) {
-    return 'SSE';
-  } else if (normalized >= 168.75 && normalized < 191.25) {
-    return 'S';
-  } else if (normalized >= 191.25 && normalized < 213.75) {
-    return 'SSW';
-  } else if (normalized >= 213.75 && normalized < 236.25) {
-    return 'SW';
-  } else if (normalized >= 236.25 && normalized < 258.75) {
-    return 'WSW';
-  } else if (normalized >= 258.75 && normalized < 281.25) {
-    return 'W';
-  } else if (normalized >= 281.25 && normalized < 303.75) {
-    return 'WNW';
-  } else if (normalized >= 303.75 && normalized < 326.25) {
-    return 'NW';
-  } else {
-    return 'NNW';
-  }
+  if (normalized >= 348.75 || normalized < 11.25) return 'N';
+  if (normalized >= 11.25 && normalized < 33.75) return 'NNE';
+  if (normalized >= 33.75 && normalized < 56.25) return 'NE';
+  if (normalized >= 56.25 && normalized < 78.75) return 'ENE';
+  if (normalized >= 78.75 && normalized < 101.25) return 'E';
+  if (normalized >= 101.25 && normalized < 123.75) return 'ESE';
+  if (normalized >= 123.75 && normalized < 146.25) return 'SE';
+  if (normalized >= 146.25 && normalized < 168.75) return 'SSE';
+  if (normalized >= 168.75 && normalized < 191.25) return 'S';
+  if (normalized >= 191.25 && normalized < 213.75) return 'SSW';
+  if (normalized >= 213.75 && normalized < 236.25) return 'SW';
+  if (normalized >= 236.25 && normalized < 258.75) return 'WSW';
+  if (normalized >= 258.75 && normalized < 281.25) return 'W';
+  if (normalized >= 281.25 && normalized < 303.75) return 'WNW';
+  if (normalized >= 303.75 && normalized < 326.25) return 'NW';
+  return 'NNW';
 }
 
 /// Get directional arrow showing where wind is coming FROM
@@ -179,113 +163,66 @@ String getWindArrow(double degrees) {
   double normalized = degrees % 360;
   if (normalized < 0) normalized += 360;
 
-  if (normalized >= 348.75 || normalized < 11.25) {
-    return '↓';
-  } else if (normalized >= 11.25 && normalized < 56.25) {
-    return '↙';
-  } else if (normalized >= 56.25 && normalized < 78.75) {
-    return '↙';
-  } else if (normalized >= 78.75 && normalized < 101.25) {
-    return '←';
-  } else if (normalized >= 101.25 && normalized < 146.25) {
-    return '↖';
-  } else if (normalized >= 146.25 && normalized < 168.75) {
-    return '↖';
-  } else if (normalized >= 168.75 && normalized < 191.25) {
-    return '↑';
-  } else if (normalized >= 191.25 && normalized < 236.25) {
-    return '↗';
-  } else if (normalized >= 236.25 && normalized < 258.75) {
-    return '↗';
-  } else if (normalized >= 258.75 && normalized < 281.25) {
-    return '→';
-  } else if (normalized >= 281.25 && normalized < 326.25) {
-    return '↘';
-  } else {
-    return '↘';
-  }
-}
-
-/// =======================
-/// HELPER CLASS FOR TIMESTAMP MATCHING
-/// =======================
-class _TimestampedPoint {
-  final DateTime timestamp;
-  final int deviceId;
-  final WeatherData data;
-
-  _TimestampedPoint({
-    required this.timestamp,
-    required this.deviceId,
-    required this.data,
-  });
+  if (normalized >= 348.75 || normalized < 11.25) return '↓';
+  if (normalized >= 11.25 && normalized < 56.25) return '↙';
+  if (normalized >= 56.25 && normalized < 78.75) return '↙';
+  if (normalized >= 78.75 && normalized < 101.25) return '←';
+  if (normalized >= 101.25 && normalized < 146.25) return '↖';
+  if (normalized >= 146.25 && normalized < 168.75) return '↖';
+  if (normalized >= 168.75 && normalized < 191.25) return '↑';
+  if (normalized >= 191.25 && normalized < 236.25) return '↗';
+  if (normalized >= 236.25 && normalized < 258.75) return '↗';
+  if (normalized >= 258.75 && normalized < 281.25) return '→';
+  if (normalized >= 281.25 && normalized < 326.25) return '↘';
+  return '↘';
 }
 
 /// =======================
 /// TIMESTAMP MATCHER
+/// Buckets readings into 5-minute slots.
+/// A MatchedDataPoint is only created when ALL devices have a reading
+/// in the same bucket — used exclusively for statistics/comparison.
+/// Charts use raw per-device data instead.
 /// =======================
 class TimestampMatcher {
-  static const int maxTimeDifferenceSeconds = 359; // 5 minutes 59 seconds
+  /// Rounds a DateTime DOWN to the nearest [bucketMinutes] boundary.
+  /// e.g. 11:28:43 → 11:25:00  when bucketMinutes = 5
+  ///      11:30:12 → 11:30:00  when bucketMinutes = 5
+  static DateTime _bucket(DateTime dt, {int bucketMinutes = 5}) {
+    final minuteBucket = (dt.minute ~/ bucketMinutes) * bucketMinutes;
+    return DateTime(dt.year, dt.month, dt.day, dt.hour, minuteBucket, 0);
+  }
 
-  /// Match data points across devices based on timestamps
-  /// Only matches timestamps within maxTimeDifferenceSeconds
-  /// Uses a clustering approach to prevent duplicates
   static List<MatchedDataPoint> matchTimestamps(List<DeviceData> devicesData) {
     if (devicesData.isEmpty) return [];
 
-    List<MatchedDataPoint> matchedPoints = [];
+    // Build a map: bucketTimestamp → { deviceId → WeatherData }
+    // For each device keep only the FIRST reading per bucket.
+    final Map<DateTime, Map<int, WeatherData>> bucketMap = {};
 
-    // Collect all data points with their device ID
-    List<_TimestampedPoint> allPoints = [];
-    for (var device in devicesData) {
-      for (var data in device.data) {
-        allPoints.add(_TimestampedPoint(
-          timestamp: data.timeStamp,
-          deviceId: device.deviceId,
-          data: data,
-        ));
+    for (final device in devicesData) {
+      for (final data in device.data) {
+        final bucket = _bucket(data.timeStamp);
+        bucketMap.putIfAbsent(bucket, () => {});
+
+        // First reading per device per bucket wins
+        if (!bucketMap[bucket]!.containsKey(device.deviceId)) {
+          bucketMap[bucket]![device.deviceId] = data;
+        }
       }
     }
 
-    // Sort by timestamp
-    allPoints.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    // Only keep buckets where EVERY requested device has data
+    final int requiredCount = devicesData.length;
+    final List<MatchedDataPoint> matchedPoints = [];
+    final sortedBuckets = bucketMap.keys.toList()..sort();
 
-    // Track which points have been used
-    Set<int> usedIndices = {};
-
-    // Cluster points that are close together
-    for (int i = 0; i < allPoints.length; i++) {
-      if (usedIndices.contains(i)) continue;
-
-      final currentPoint = allPoints[i];
-      Map<int, WeatherData> deviceMatches = {
-        currentPoint.deviceId: currentPoint.data,
-      };
-      usedIndices.add(i);
-
-      // Look ahead for matching timestamps from other devices
-      for (int j = i + 1; j < allPoints.length; j++) {
-        if (usedIndices.contains(j)) continue;
-
-        final otherPoint = allPoints[j];
-        final timeDiff =
-            otherPoint.timestamp.difference(currentPoint.timestamp).abs();
-
-        // If time difference is too large, stop looking ahead
-        if (timeDiff.inSeconds > maxTimeDifferenceSeconds) break;
-
-        // If we don't have this device yet, add it
-        if (!deviceMatches.containsKey(otherPoint.deviceId)) {
-          deviceMatches[otherPoint.deviceId] = otherPoint.data;
-          usedIndices.add(j);
-        }
-      }
-
-      // Only add if we have matches from at least 2 devices
-      if (deviceMatches.length >= 2) {
+    for (final bucket in sortedBuckets) {
+      final deviceMap = bucketMap[bucket]!;
+      if (deviceMap.length >= requiredCount) {
         matchedPoints.add(MatchedDataPoint(
-          timestamp: currentPoint.timestamp,
-          deviceData: deviceMatches,
+          timestamp: bucket,
+          deviceData: deviceMap,
         ));
       }
     }
@@ -316,9 +253,7 @@ class ColorPalette {
     Colors.deepPurple,
   ];
 
-  static Color getColor(int index) {
-    return chartColors[index % chartColors.length];
-  }
+  static Color getColor(int index) => chartColors[index % chartColors.length];
 }
 
 /// =======================
@@ -349,7 +284,6 @@ class SensorComparisonPage extends StatefulWidget {
 }
 
 class _SensorComparisonPageState extends State<SensorComparisonPage> {
-  // List of device IDs to compare
   List<int> selectedDeviceIds = [1, 2];
   final TextEditingController newDeviceController = TextEditingController();
 
@@ -358,21 +292,27 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
 
   List<WeatherParameter> selectedParameters = [WeatherParameter.temperature];
 
-  // Store data for each device
+  /// Raw data per device — used for chart plotting (all readings included)
   List<DeviceData> devicesData = [];
 
-  // Matched data points
+  /// Matched data — only buckets where ALL devices have a reading (for stats)
   List<MatchedDataPoint> matchedDataPoints = [];
 
   bool loading = false;
   String? error;
 
-  // Zoom and pan state
+  // Zoom / pan state
   double zoomLevel = 1.0;
-  double panOffset = 0.0;
+  double panOffset = 0.0; // in "minutes from globalMinTime"
   double baseScale = 1.0;
   final double minZoom = 1.0;
   final double maxZoom = 10.0;
+
+  // Derived once per fetch so chart and gesture handler share the same values
+  DateTime? _globalMinTime;
+  double _totalMinutes = 0.0;
+
+  // ─── Date Picker ────────────────────────────────────────────────────────────
 
   Future<void> pickDate(bool isStart) async {
     final picked = await showDatePicker(
@@ -381,7 +321,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
     );
-
     if (picked != null) {
       setState(() {
         if (isStart) {
@@ -393,22 +332,18 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     }
   }
 
+  // ─── Device Management ──────────────────────────────────────────────────────
+
   void addDevice() {
     final deviceId = int.tryParse(newDeviceController.text);
     if (deviceId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid device ID')),
-      );
+      _snack('Please enter a valid device ID');
       return;
     }
-
     if (selectedDeviceIds.contains(deviceId)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Device already added')),
-      );
+      _snack('Device already added');
       return;
     }
-
     setState(() {
       selectedDeviceIds.add(deviceId);
       newDeviceController.clear();
@@ -417,19 +352,22 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
 
   void removeDevice(int deviceId) {
     if (selectedDeviceIds.length <= 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('At least one device is required')),
-      );
+      _snack('At least one device is required');
       return;
     }
-
     setState(() {
       selectedDeviceIds.remove(deviceId);
       devicesData.removeWhere((d) => d.deviceId == deviceId);
-      // Recalculate matched points
       matchedDataPoints = TimestampMatcher.matchTimestamps(devicesData);
+      _recalcGlobalTime();
     });
   }
+
+  void _snack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  // ─── Fetch ──────────────────────────────────────────────────────────────────
 
   Future<void> fetchComparisonData() async {
     if (selectedDeviceIds.isEmpty) {
@@ -449,17 +387,12 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
       final start = DateFormat('dd-MM-yyyy').format(startDate);
       final end = DateFormat('dd-MM-yyyy').format(endDate);
 
-      List<DeviceData> fetchedData = [];
+      final List<DeviceData> fetchedData = [];
 
-      // Fetch data for each device
       for (int i = 0; i < selectedDeviceIds.length; i++) {
         final deviceId = selectedDeviceIds[i];
-        final url = buildApiUrl(
-          deviceId: deviceId,
-          startDate: start,
-          endDate: end,
-        );
-
+        final url =
+            buildApiUrl(deviceId: deviceId, startDate: start, endDate: end);
         final response = await http.get(Uri.parse(url));
 
         if (response.statusCode != 200) {
@@ -476,13 +409,13 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
         ));
       }
 
-      // Match timestamps across devices
       final matched = TimestampMatcher.matchTimestamps(fetchedData);
 
       setState(() {
         devicesData = fetchedData;
         matchedDataPoints = matched;
         loading = false;
+        _recalcGlobalTime();
       });
     } catch (e) {
       setState(() {
@@ -490,6 +423,26 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
         loading = false;
       });
     }
+  }
+
+  /// Recompute the shared X-axis anchor (earliest timestamp across all devices).
+  void _recalcGlobalTime() {
+    DateTime? earliest;
+    DateTime? latest;
+    for (final device in devicesData) {
+      for (final d in device.data) {
+        if (earliest == null || d.timeStamp.isBefore(earliest)) {
+          earliest = d.timeStamp;
+        }
+        if (latest == null || d.timeStamp.isAfter(latest)) {
+          latest = d.timeStamp;
+        }
+      }
+    }
+    _globalMinTime = earliest;
+    _totalMinutes = (earliest != null && latest != null)
+        ? latest.difference(earliest).inSeconds / 60.0
+        : 0.0;
   }
 
   void resetZoom() {
@@ -500,42 +453,36 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     });
   }
 
+  // ─── Statistics ─────────────────────────────────────────────────────────────
+
   Map<WeatherParameter, Map<String, Map<int, double>>> calculateStatistics() {
-    if (matchedDataPoints.isEmpty) {
-      return {};
-    }
+    if (matchedDataPoints.isEmpty) return {};
 
-    Map<WeatherParameter, Map<String, Map<int, double>>> allStats = {};
+    final Map<WeatherParameter, Map<String, Map<int, double>>> allStats = {};
 
-    for (var parameter in selectedParameters) {
-      Map<int, List<double>> deviceValues = {};
+    for (final parameter in selectedParameters) {
+      final Map<int, List<double>> deviceValues = {};
 
-      // Collect values only from matched data points
-      for (var matchedPoint in matchedDataPoints) {
-        for (var entry in matchedPoint.deviceData.entries) {
-          final deviceId = entry.key;
-          final data = entry.value;
-          final value = getParameterValue(data, parameter);
-
-          deviceValues.putIfAbsent(deviceId, () => []).add(value);
+      for (final matchedPoint in matchedDataPoints) {
+        for (final entry in matchedPoint.deviceData.entries) {
+          deviceValues
+              .putIfAbsent(entry.key, () => [])
+              .add(getParameterValue(entry.value, parameter));
         }
       }
 
-      // Calculate statistics for each device
-      Map<String, Map<int, double>> stats = {
+      final Map<String, Map<int, double>> stats = {
         'max': {},
         'min': {},
         'avg': {},
       };
 
-      for (var entry in deviceValues.entries) {
-        final deviceId = entry.key;
+      for (final entry in deviceValues.entries) {
         final values = entry.value;
-
         if (values.isNotEmpty) {
-          stats['max']![deviceId] = values.reduce(max);
-          stats['min']![deviceId] = values.reduce(min);
-          stats['avg']![deviceId] =
+          stats['max']![entry.key] = values.reduce(max);
+          stats['min']![entry.key] = values.reduce(min);
+          stats['avg']![entry.key] =
               values.reduce((a, b) => a + b) / values.length;
         }
       }
@@ -548,39 +495,34 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
 
   Map<WeatherParameter, Map<String, Map<String, double>>>
       calculateDifferenceStatistics() {
-    if (matchedDataPoints.isEmpty || selectedDeviceIds.length < 2) {
-      return {};
-    }
+    if (matchedDataPoints.isEmpty || selectedDeviceIds.length < 2) return {};
 
-    Map<WeatherParameter, Map<String, Map<String, double>>> allDiffStats = {};
+    final Map<WeatherParameter, Map<String, Map<String, double>>> allDiffStats =
+        {};
 
-    for (var parameter in selectedParameters) {
-      Map<String, Map<String, double>> diffStats = {};
+    for (final parameter in selectedParameters) {
+      final Map<String, Map<String, double>> diffStats = {};
 
-      // Compare each pair of devices using matched data points
       for (int i = 0; i < selectedDeviceIds.length - 1; i++) {
         for (int j = i + 1; j < selectedDeviceIds.length; j++) {
-          final deviceIdA = selectedDeviceIds[i];
-          final deviceIdB = selectedDeviceIds[j];
+          final idA = selectedDeviceIds[i];
+          final idB = selectedDeviceIds[j];
+          final List<double> differences = [];
 
-          List<double> differences = [];
-
-          // Calculate differences only for matched timestamps
-          for (var matchedPoint in matchedDataPoints) {
-            final dataA = matchedPoint.deviceData[deviceIdA];
-            final dataB = matchedPoint.deviceData[deviceIdB];
-
-            // Both devices must have data at this timestamp
+          for (final mp in matchedDataPoints) {
+            final dataA = mp.deviceData[idA];
+            final dataB = mp.deviceData[idB];
             if (dataA != null && dataB != null) {
-              final valueA = getParameterValue(dataA, parameter);
-              final valueB = getParameterValue(dataB, parameter);
-              differences.add((valueA - valueB).abs());
+              differences.add(
+                (getParameterValue(dataA, parameter) -
+                        getParameterValue(dataB, parameter))
+                    .abs(),
+              );
             }
           }
 
           if (differences.isNotEmpty) {
-            final pairKey = '$deviceIdA-$deviceIdB';
-            diffStats[pairKey] = {
+            diffStats['$idA-$idB'] = {
               'maxDiff': differences.reduce(max),
               'avgDiff':
                   differences.reduce((a, b) => a + b) / differences.length,
@@ -595,6 +537,8 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
 
     return allDiffStats;
   }
+
+  // ─── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -633,10 +577,8 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.deepPurple,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
-                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               ),
               onPressed: loading ? null : fetchComparisonData,
             ),
@@ -645,13 +587,14 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
             if (error != null)
               Text(error!, style: const TextStyle(color: Colors.red)),
             if (!loading && devicesData.isNotEmpty) ...[
-              // Show charts for each selected parameter
-              ...selectedParameters.map((parameter) => Column(
-                    children: [
-                      _buildChartCard(parameter),
-                      const SizedBox(height: 16),
-                    ],
-                  )),
+              ...selectedParameters.map(
+                (parameter) => Column(
+                  children: [
+                    _buildChartCard(parameter),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
               _buildStatisticsCard(),
             ],
           ],
@@ -659,6 +602,8 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
       ),
     );
   }
+
+  // ─── Device Selector Card ───────────────────────────────────────────────────
 
   Widget _buildDeviceSelector() {
     return Card(
@@ -669,23 +614,18 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
           children: [
             const Text(
               'Selected Devices',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: selectedDeviceIds.map((deviceId) {
-                final index = selectedDeviceIds.indexOf(deviceId);
-                final color = ColorPalette.getColor(index);
+                final color =
+                    ColorPalette.getColor(selectedDeviceIds.indexOf(deviceId));
                 return Chip(
-                  label: Text(
-                    'Device $deviceId',
-                    style: const TextStyle(color: Colors.white),
-                  ),
+                  label: Text('Device $deviceId',
+                      style: const TextStyle(color: Colors.white)),
                   backgroundColor: color,
                   deleteIcon:
                       const Icon(Icons.close, color: Colors.white, size: 18),
@@ -722,6 +662,8 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     );
   }
 
+  // ─── Parameter & Date Selector ──────────────────────────────────────────────
+
   Widget _buildParameterAndDateSelector() {
     return Card(
       child: Padding(
@@ -731,10 +673,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
           children: [
             const Text(
               'Select Parameters',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -753,12 +692,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
                         if (selectedParameters.length > 1) {
                           selectedParameters.remove(parameter);
                         } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                  'At least one parameter must be selected'),
-                            ),
-                          );
+                          _snack('At least one parameter must be selected');
                         }
                       }
                     });
@@ -800,14 +734,17 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     );
   }
 
+  // ─── Legend ─────────────────────────────────────────────────────────────────
+
   Widget _buildLegend() {
     return Wrap(
       alignment: WrapAlignment.center,
       spacing: 16,
       runSpacing: 8,
-      children: devicesData.map((device) {
-        return _buildLegendItem('Device ${device.deviceId}', device.color);
-      }).toList(),
+      children: devicesData
+          .map((device) =>
+              _buildLegendItem('Device ${device.deviceId}', device.color))
+          .toList(),
     );
   }
 
@@ -819,18 +756,271 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
           width: 16,
           height: 16,
           decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(4),
-          ),
+              color: color, borderRadius: BorderRadius.circular(4)),
         ),
         const SizedBox(width: 8),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12),
-        ),
+        Text(label, style: const TextStyle(fontSize: 12)),
       ],
     );
   }
+
+  // ─── Chart Card ─────────────────────────────────────────────────────────────
+
+  Widget _buildChartCard(WeatherParameter parameter) {
+    return Container(
+      margin: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              parameterLabel(parameter),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ),
+          SizedBox(
+            height: 350,
+            child: ClipRect(
+              clipBehavior: Clip.hardEdge,
+              child: _buildChart(parameter),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: _buildLegend(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Chart (uses RAW per-device data — plots ALL readings) ──────────────────
+  //
+  // Key design:
+  //  • X-axis = elapsed minutes from the earliest timestamp across ALL devices.
+  //  • This means Device 4's 11:25 reading IS plotted (its line starts earlier).
+  //  • Device 5's line starts at its own first reading (11:30).
+  //  • Both lines share the same time axis, so they overlap from 11:30 onwards.
+  //  • Statistics (below) still use only the matched/overlapping buckets.
+  // ────────────────────────────────────────────────────────────────────────────
+
+  Widget _buildChart(WeatherParameter parameter) {
+    if (devicesData.isEmpty || _globalMinTime == null) {
+      return const Center(child: Text('No data available'));
+    }
+
+    final globalMin = _globalMinTime!;
+    final totalMinutes = _totalMinutes;
+
+    if (totalMinutes <= 0) {
+      return const Center(child: Text('No data points available'));
+    }
+
+    // Visible window in minutes
+    final visibleMinutes = totalMinutes / zoomLevel;
+    final maxPan = max(0.0, totalMinutes - visibleMinutes);
+    final clampedPan = panOffset.clamp(0.0, maxPan).toDouble();
+    final minXMin = clampedPan;
+    final maxXMin = min(clampedPan + visibleMinutes, totalMinutes);
+
+    // Build one line per device from its raw data
+    final List<LineChartBarData> lineBars = [];
+
+    for (final device in devicesData) {
+      final spots = <FlSpot>[];
+      for (final d in device.data) {
+        final elapsed = d.timeStamp.difference(globalMin).inSeconds / 60.0;
+        spots.add(FlSpot(elapsed, getParameterValue(d, parameter)));
+      }
+      if (spots.isNotEmpty) {
+        lineBars.add(LineChartBarData(
+          spots: spots,
+          isCurved: true,
+          color: device.color,
+          barWidth: 3,
+          isStrokeCapRound: true,
+          dotData: FlDotData(show: zoomLevel > 3),
+          belowBarData: BarAreaData(show: false),
+        ));
+      }
+    }
+
+    return ClipRect(
+      clipBehavior: Clip.hardEdge,
+      child: RawGestureDetector(
+        gestures: {
+          _PanZoomGestureRecognizer:
+              GestureRecognizerFactoryWithHandlers<_PanZoomGestureRecognizer>(
+            () => _PanZoomGestureRecognizer(),
+            (_PanZoomGestureRecognizer instance) {
+              instance
+                ..onStart = (_) {
+                  baseScale = zoomLevel;
+                }
+                ..onUpdate = (details) {
+                  // Pinch-to-zoom
+                  if (details.scale != 1.0) {
+                    setState(() {
+                      zoomLevel = (baseScale * details.scale)
+                          .clamp(minZoom, maxZoom)
+                          .toDouble();
+                    });
+                  }
+                  // Pan (horizontal)
+                  if (details.focalPointDelta.dx.abs() > 0.1) {
+                    final sensitivity = totalMinutes / (400 * zoomLevel);
+                    final newPan =
+                        (panOffset - details.focalPointDelta.dx * sensitivity)
+                            .clamp(0.0, max(0.0, totalMinutes - visibleMinutes))
+                            .toDouble();
+                    setState(() => panOffset = newPan);
+                  }
+                }
+                ..onEnd = (_) {
+                  baseScale = zoomLevel;
+                };
+            },
+          ),
+        },
+        child: Listener(
+          onPointerSignal: (signal) {
+            if (signal is PointerScrollEvent &&
+                HardwareKeyboard.instance.isShiftPressed) {
+              final delta = signal.scrollDelta.dy;
+              setState(() {
+                zoomLevel = delta < 0
+                    ? min(maxZoom, zoomLevel * 1.1)
+                    : max(minZoom, zoomLevel / 1.1);
+              });
+            }
+          },
+          child: LineChart(
+            LineChartData(
+              clipData: const FlClipData.all(),
+              minX: minXMin,
+              maxX: maxXMin,
+              gridData: FlGridData(
+                show: true,
+                getDrawingHorizontalLine: (_) =>
+                    FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+                getDrawingVerticalLine: (_) =>
+                    FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+              ),
+              borderData: FlBorderData(
+                show: true,
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              titlesData: FlTitlesData(
+                topTitles:
+                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                leftTitles: AxisTitles(
+                  axisNameWidget: Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Text(
+                      parameterLabel(parameter),
+                      style: const TextStyle(
+                          fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 48,
+                    getTitlesWidget: (value, _) => Text(
+                      value.toStringAsFixed(1),
+                      style: const TextStyle(fontSize: 10),
+                    ),
+                  ),
+                ),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 30,
+                    interval: max(1.0, (visibleMinutes / 10).ceilToDouble()),
+                    getTitlesWidget: (value, _) {
+                      // Convert elapsed-minutes back to a wall-clock label
+                      final labelTime = globalMin
+                          .add(Duration(seconds: (value * 60).round()));
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          DateFormat('HH:mm').format(labelTime),
+                          style: const TextStyle(fontSize: 10),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              lineBarsData: lineBars,
+              lineTouchData: LineTouchData(
+                touchTooltipData: LineTouchTooltipData(
+                  fitInsideHorizontally: true,
+                  fitInsideVertically: true,
+                  getTooltipItems: (touchedSpots) {
+                    return touchedSpots.map((spot) {
+                      final deviceIndex = spot.barIndex;
+                      if (deviceIndex >= devicesData.length) return null;
+                      final device = devicesData[deviceIndex];
+
+                      // Find the closest raw data point by elapsed minutes
+                      WeatherData? closest;
+                      double minDiff = double.infinity;
+                      for (final d in device.data) {
+                        final elapsed =
+                            d.timeStamp.difference(globalMin).inSeconds / 60.0;
+                        final diff = (elapsed - spot.x).abs();
+                        if (diff < minDiff) {
+                          minDiff = diff;
+                          closest = d;
+                        }
+                      }
+                      if (closest == null) return null;
+
+                      final ts = DateFormat('dd-MM-yyyy HH:mm:ss')
+                          .format(closest.timeStamp);
+                      final value = getParameterValue(closest, parameter);
+
+                      String fmt(double v) {
+                        if (parameter == WeatherParameter.windDirection) {
+                          return '${v.toStringAsFixed(1)}° '
+                              '(${degreesToDirection(v)}) ${getWindArrow(v)}';
+                        }
+                        return v.toStringAsFixed(1);
+                      }
+
+                      return LineTooltipItem(
+                        '$ts\nDevice ${device.deviceId}: ${fmt(value)}',
+                        TextStyle(
+                          color: device.color,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      );
+                    }).toList();
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Statistics Card ────────────────────────────────────────────────────────
 
   Widget _buildStatisticsCard() {
     final allStats = calculateStatistics();
@@ -844,19 +1034,55 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
           children: [
             const Text(
               'Statistics (Based on Matched Timestamps)',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
+            // ── Overlap notice ───────────────────────────────────────────────
+            if (matchedDataPoints.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.shade300),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline,
+                        size: 16, color: Colors.amber.shade700),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Comparison starts from '
+                        '${DateFormat('HH:mm, dd-MM-yyyy').format(matchedDataPoints.first.timestamp)} '
+                        '— when all devices have data.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.amber.shade800,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 8),
+              const Text(
+                'No overlapping timestamps found across all devices.',
+                style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.red,
+                    fontStyle: FontStyle.italic),
+              ),
+            ],
             const SizedBox(height: 16),
-            // Show statistics for each parameter
             ...selectedParameters.map((parameter) {
               final stats = allStats[parameter] ?? {};
               final diffStats = allDiffStats[parameter] ?? {};
               final unit = parameterUnit(parameter);
-              final isWindDirection =
-                  parameter == WeatherParameter.windDirection;
+              final isWind = parameter == WeatherParameter.windDirection;
 
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -879,18 +1105,16 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  if (isWindDirection) ...[
+                  if (isWind) ...[
                     _buildWindDirectionInfo(),
                     const SizedBox(height: 16),
                   ],
-                  // Individual device statistics
                   const Text(
                     'Individual Device Values',
                     style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.deepPurple,
-                    ),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.deepPurple),
                   ),
                   const SizedBox(height: 12),
                   _buildStatSection(
@@ -901,23 +1125,18 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
                   const SizedBox(height: 12),
                   _buildStatSection(
                       'Minimum', stats['min'] ?? {}, unit, Colors.green),
-
-                  // Difference statistics (only if 2+ devices)
                   if (diffStats.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     const Text(
                       'Device Comparison Differences',
                       style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.deepPurple,
-                      ),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.deepPurple),
                     ),
                     const SizedBox(height: 12),
                     _buildDifferenceStatistics(diffStats, unit),
                   ],
-
-                  // Divider between parameters
                   if (parameter != selectedParameters.last) ...[
                     const SizedBox(height: 24),
                     const Divider(thickness: 2),
@@ -940,18 +1159,15 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
         Text(
           title,
           style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: color,
-          ),
+              fontSize: 14, fontWeight: FontWeight.w600, color: color),
         ),
         const SizedBox(height: 8),
         Wrap(
           spacing: 16,
           runSpacing: 8,
           children: values.entries.map((entry) {
-            final deviceIndex = selectedDeviceIds.indexOf(entry.key);
-            final deviceColor = ColorPalette.getColor(deviceIndex);
+            final deviceColor =
+                ColorPalette.getColor(selectedDeviceIds.indexOf(entry.key));
             return Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
@@ -979,19 +1195,14 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: diffStats.entries.map((entry) {
-        final pairKey = entry.key;
-        final devices = pairKey.split('-');
+        final devices = entry.key.split('-');
         final deviceA = int.parse(devices[0]);
         final deviceB = int.parse(devices[1]);
 
-        final maxDiff = entry.value['maxDiff']!;
-        final avgDiff = entry.value['avgDiff']!;
-        final minDiff = entry.value['minDiff']!;
-
-        final indexA = selectedDeviceIds.indexOf(deviceA);
-        final indexB = selectedDeviceIds.indexOf(deviceB);
-        final colorA = ColorPalette.getColor(indexA);
-        final colorB = ColorPalette.getColor(indexB);
+        final colorA =
+            ColorPalette.getColor(selectedDeviceIds.indexOf(deviceA));
+        final colorB =
+            ColorPalette.getColor(selectedDeviceIds.indexOf(deviceB));
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
@@ -1007,71 +1218,36 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
               children: [
                 Row(
                   children: [
-                    Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: colorA,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
+                    _dot(colorA),
                     const SizedBox(width: 4),
-                    Text(
-                      'Device $deviceA',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: colorA,
-                      ),
-                    ),
+                    Text('Device $deviceA',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: colorA)),
                     const SizedBox(width: 8),
                     const Icon(Icons.compare_arrows,
                         size: 16, color: Colors.grey),
                     const SizedBox(width: 8),
-                    Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: colorB,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
+                    _dot(colorB),
                     const SizedBox(width: 4),
-                    Text(
-                      'Device $deviceB',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: colorB,
-                      ),
-                    ),
+                    Text('Device $deviceB',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: colorB)),
                   ],
                 ),
                 const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildDiffStatItem(
-                      'Max Diff',
-                      maxDiff,
-                      unit,
-                      Colors.red,
-                      Icons.trending_up,
-                    ),
-                    _buildDiffStatItem(
-                      'Avg Diff',
-                      avgDiff,
-                      unit,
-                      Colors.blue,
-                      Icons.show_chart,
-                    ),
-                    _buildDiffStatItem(
-                      'Min Diff',
-                      minDiff,
-                      unit,
-                      Colors.green,
-                      Icons.trending_down,
-                    ),
+                    _buildDiffStatItem('Max Diff', entry.value['maxDiff']!,
+                        unit, Colors.red, Icons.trending_up),
+                    _buildDiffStatItem('Avg Diff', entry.value['avgDiff']!,
+                        unit, Colors.blue, Icons.show_chart),
+                    _buildDiffStatItem('Min Diff', entry.value['minDiff']!,
+                        unit, Colors.green, Icons.trending_down),
                   ],
                 ),
               ],
@@ -1082,48 +1258,42 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     );
   }
 
+  Widget _dot(Color color) => Container(
+        width: 12,
+        height: 12,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      );
+
   Widget _buildDiffStatItem(
       String label, double value, String unit, Color color, IconData icon) {
     return Column(
       children: [
         Icon(icon, color: color, size: 24),
         const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 10,
-            color: Colors.grey,
-          ),
-          textAlign: TextAlign.center,
-        ),
+        Text(label,
+            style: const TextStyle(fontSize: 10, color: Colors.grey),
+            textAlign: TextAlign.center),
         const SizedBox(height: 2),
         Text(
           '${value.toStringAsFixed(2)} $unit',
           style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
+              fontSize: 13, fontWeight: FontWeight.bold, color: color),
           textAlign: TextAlign.center,
         ),
       ],
     );
   }
 
-  Widget _buildWindDirectionInfo() {
-    if (devicesData.isEmpty) {
-      return const SizedBox.shrink();
-    }
+  // ─── Wind Direction Info ─────────────────────────────────────────────────────
 
+  Widget _buildWindDirectionInfo() {
+    if (devicesData.isEmpty) return const SizedBox.shrink();
     return Column(
       children: [
         const Text(
           'Current Wind Direction',
           style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.grey,
-          ),
+              fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey),
         ),
         const SizedBox(height: 12),
         Wrap(
@@ -1132,10 +1302,9 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
           alignment: WrapAlignment.center,
           children: devicesData.map((device) {
             if (device.data.isEmpty) return const SizedBox.shrink();
-            final latestDirection = device.data.last.windDirection;
             return _buildWindDirectionItem(
               'Device ${device.deviceId}',
-              latestDirection,
+              device.data.last.windDirection,
               device.color,
             );
           }).toList(),
@@ -1145,17 +1314,9 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
   }
 
   Widget _buildWindDirectionItem(String device, double degrees, Color color) {
-    final direction = degreesToDirection(degrees);
-    final arrow = getWindArrow(degrees);
     return Column(
       children: [
-        Text(
-          device,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.grey,
-          ),
-        ),
+        Text(device, style: const TextStyle(fontSize: 12, color: Colors.grey)),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(12),
@@ -1167,309 +1328,23 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
           child: Column(
             children: [
               Text(
-                arrow,
+                getWindArrow(degrees),
                 style: TextStyle(
-                  fontSize: 36,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                  height: 1.0,
-                ),
+                    fontSize: 36,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                    height: 1.0),
               ),
               const SizedBox(height: 4),
-              Text(
-                direction,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-              Text(
-                '${degrees.toStringAsFixed(1)}°',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: color,
-                ),
-              ),
+              Text(degreesToDirection(degrees),
+                  style: TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+              Text('${degrees.toStringAsFixed(1)}°',
+                  style: TextStyle(fontSize: 12, color: color)),
             ],
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildChartCard(WeatherParameter parameter) {
-    return Container(
-      margin: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.hardEdge,
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                Text(
-                  parameterLabel(parameter),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(
-            height: 350,
-            child: ClipRect(
-              clipBehavior: Clip.hardEdge,
-              child: _buildChart(parameter),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16.0),
-            child: _buildLegend(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildChart(WeatherParameter parameter) {
-    if (matchedDataPoints.isEmpty) {
-      return const Center(child: Text('No matched data points available'));
-    }
-
-    final maxLength = matchedDataPoints.length;
-
-    if (maxLength == 0) {
-      return const Center(child: Text('No data points available'));
-    }
-
-    // Calculate visible range based on zoom and pan
-    final visibleRange = maxLength / zoomLevel;
-    final maxPanOffset = max(0.0, maxLength - visibleRange);
-    final clampedPanOffset = panOffset.clamp(0.0, maxPanOffset);
-
-    final minX = clampedPanOffset;
-    final maxX = min(clampedPanOffset + visibleRange, maxLength.toDouble());
-
-    // Create line data for each device from matched points
-    List<LineChartBarData> lineBars = [];
-
-    for (var device in devicesData) {
-      final spots = <FlSpot>[];
-
-      for (int i = 0; i < matchedDataPoints.length; i++) {
-        final matchedPoint = matchedDataPoints[i];
-        final deviceData = matchedPoint.deviceData[device.deviceId];
-
-        if (deviceData != null) {
-          spots.add(
-            FlSpot(i.toDouble(), getParameterValue(deviceData, parameter)),
-          );
-        }
-      }
-
-      if (spots.isNotEmpty) {
-        lineBars.add(
-          LineChartBarData(
-            spots: spots,
-            isCurved: true,
-            color: device.color,
-            barWidth: 3,
-            isStrokeCapRound: true,
-            dotData: FlDotData(show: zoomLevel > 3),
-            belowBarData: BarAreaData(show: false),
-          ),
-        );
-      }
-    }
-
-    return ClipRect(
-      clipBehavior: Clip.hardEdge,
-      child: RawGestureDetector(
-        gestures: {
-          _PanZoomGestureRecognizer:
-              GestureRecognizerFactoryWithHandlers<_PanZoomGestureRecognizer>(
-            () => _PanZoomGestureRecognizer(),
-            (_PanZoomGestureRecognizer instance) {
-              instance
-                ..onStart = (details) {
-                  baseScale = zoomLevel;
-                }
-                ..onUpdate = (details) {
-                  if (details.scale != 1.0) {
-                    final newZoom = baseScale * details.scale;
-                    setState(() {
-                      zoomLevel = newZoom.clamp(minZoom, maxZoom);
-                    });
-                  }
-
-                  if (details.focalPointDelta.dx.abs() > 0.1) {
-                    final panSensitivity = maxLength / (400 * zoomLevel);
-                    final newPan = (panOffset -
-                            details.focalPointDelta.dx * panSensitivity)
-                        .clamp(-0.5, max(0.0, maxLength - visibleRange) + 0.5);
-                    setState(() {
-                      panOffset = newPan;
-                    });
-                  }
-                }
-                ..onEnd = (details) {
-                  baseScale = zoomLevel;
-                };
-            },
-          ),
-        },
-        child: Listener(
-          onPointerSignal: (pointerSignal) {
-            if (pointerSignal is PointerScrollEvent) {
-              // Only zoom if Shift key is pressed
-              if (HardwareKeyboard.instance.isShiftPressed) {
-                final delta = pointerSignal.scrollDelta.dy;
-                setState(() {
-                  if (delta < 0) {
-                    zoomLevel = min(maxZoom, zoomLevel * 1.1);
-                  } else {
-                    zoomLevel = max(minZoom, zoomLevel / 1.1);
-                  }
-                });
-              }
-              // If Shift is not pressed, allow normal scroll behavior
-              // by not consuming the event
-            }
-          },
-          child: LineChart(
-            LineChartData(
-              clipData: const FlClipData.all(),
-              minX: minX,
-              maxX: maxX,
-              gridData: FlGridData(
-                show: true,
-                getDrawingHorizontalLine: (value) =>
-                    FlLine(color: Colors.grey.shade200, strokeWidth: 1),
-                getDrawingVerticalLine: (value) =>
-                    FlLine(color: Colors.grey.shade200, strokeWidth: 1),
-              ),
-              borderData: FlBorderData(
-                show: true,
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              titlesData: FlTitlesData(
-                topTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                leftTitles: AxisTitles(
-                  axisNameWidget: Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Text(
-                      parameterLabel(parameter),
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 48,
-                    getTitlesWidget: (value, meta) {
-                      return Text(
-                        value.toStringAsFixed(1),
-                        style: const TextStyle(fontSize: 10),
-                      );
-                    },
-                  ),
-                ),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 30,
-                    interval: max(1, (visibleRange / 10).ceilToDouble()),
-                    getTitlesWidget: (value, meta) {
-                      final index = value.toInt();
-                      if (index >= 0 && index < matchedDataPoints.length) {
-                        final time = DateFormat('HH:mm')
-                            .format(matchedDataPoints[index].timestamp);
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            time,
-                            style: const TextStyle(fontSize: 10),
-                          ),
-                        );
-                      }
-                      return const SizedBox.shrink();
-                    },
-                  ),
-                ),
-              ),
-              lineBarsData: lineBars,
-              lineTouchData: LineTouchData(
-                touchTooltipData: LineTouchTooltipData(
-                  fitInsideHorizontally: true,
-                  fitInsideVertically: true,
-                  getTooltipItems: (touchedSpots) {
-                    return touchedSpots.map((spot) {
-                      final index = spot.x.toInt();
-                      if (index < 0 || index >= matchedDataPoints.length) {
-                        return null;
-                      }
-
-                      final matchedPoint = matchedDataPoints[index];
-
-                      final deviceIndex = spot.barIndex;
-                      if (deviceIndex >= devicesData.length) return null;
-
-                      final device = devicesData[deviceIndex];
-                      final deviceData =
-                          matchedPoint.deviceData[device.deviceId];
-
-                      if (deviceData == null) return null;
-
-                      // Use the actual timestamp from the device data
-                      final actualTimestamp = DateFormat('dd-MM-yyyy HH:mm:ss')
-                          .format(deviceData.timeStamp);
-
-                      final value = getParameterValue(deviceData, parameter);
-
-                      String formatValue(double value) {
-                        if (parameter == WeatherParameter.windDirection) {
-                          final direction = degreesToDirection(value);
-                          final arrow = getWindArrow(value);
-                          return '${value.toStringAsFixed(1)}° ($direction) $arrow';
-                        }
-                        return value.toStringAsFixed(1);
-                      }
-
-                      return LineTooltipItem(
-                        '$actualTimestamp\nDevice ${device.deviceId}: ${formatValue(value)}',
-                        TextStyle(
-                          color: device.color,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      );
-                    }).toList();
-                  },
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 
