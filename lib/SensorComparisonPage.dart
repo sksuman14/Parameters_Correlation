@@ -45,11 +45,10 @@ class WeatherData {
 
 /// =======================
 /// MATCHED DATA POINT
-/// (used only for statistics — both devices must have data)
 /// =======================
 class MatchedDataPoint {
   final DateTime timestamp;
-  final Map<int, WeatherData> deviceData; // deviceId -> WeatherData
+  final Map<int, WeatherData> deviceData;
 
   MatchedDataPoint({
     required this.timestamp,
@@ -179,15 +178,8 @@ String getWindArrow(double degrees) {
 
 /// =======================
 /// TIMESTAMP MATCHER
-/// Buckets readings into 5-minute slots.
-/// A MatchedDataPoint is only created when ALL devices have a reading
-/// in the same bucket — used exclusively for statistics/comparison.
-/// Charts use raw per-device data instead.
 /// =======================
 class TimestampMatcher {
-  /// Rounds a DateTime DOWN to the nearest [bucketMinutes] boundary.
-  /// e.g. 11:28:43 → 11:25:00  when bucketMinutes = 5
-  ///      11:30:12 → 11:30:00  when bucketMinutes = 5
   static DateTime _bucket(DateTime dt, {int bucketMinutes = 5}) {
     final minuteBucket = (dt.minute ~/ bucketMinutes) * bucketMinutes;
     return DateTime(dt.year, dt.month, dt.day, dt.hour, minuteBucket, 0);
@@ -196,8 +188,6 @@ class TimestampMatcher {
   static List<MatchedDataPoint> matchTimestamps(List<DeviceData> devicesData) {
     if (devicesData.isEmpty) return [];
 
-    // Build a map: bucketTimestamp → { deviceId → WeatherData }
-    // For each device keep only the FIRST reading per bucket.
     final Map<DateTime, Map<int, WeatherData>> bucketMap = {};
 
     for (final device in devicesData) {
@@ -205,14 +195,12 @@ class TimestampMatcher {
         final bucket = _bucket(data.timeStamp);
         bucketMap.putIfAbsent(bucket, () => {});
 
-        // First reading per device per bucket wins
         if (!bucketMap[bucket]!.containsKey(device.deviceId)) {
           bucketMap[bucket]![device.deviceId] = data;
         }
       }
     }
 
-    // Only keep buckets where EVERY requested device has data
     final int requiredCount = devicesData.length;
     final List<MatchedDataPoint> matchedPoints = [];
     final sortedBuckets = bucketMap.keys.toList()..sort();
@@ -292,23 +280,31 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
 
   List<WeatherParameter> selectedParameters = [WeatherParameter.temperature];
 
-  /// Raw data per device — used for chart plotting (all readings included)
   List<DeviceData> devicesData = [];
-
-  /// Matched data — only buckets where ALL devices have a reading (for stats)
   List<MatchedDataPoint> matchedDataPoints = [];
 
   bool loading = false;
   String? error;
 
-  // Zoom / pan state
-  double zoomLevel = 1.0;
-  double panOffset = 0.0; // in "minutes from globalMinTime"
-  double baseScale = 1.0;
+  // ── Per-chart zoom/pan state (keyed by WeatherParameter) ──────────────────
+  // Each chart has its own independent zoom level, pan offset, and base scale.
+  final Map<WeatherParameter, double> _zoomLevel = {};
+  final Map<WeatherParameter, double> _panOffset = {};
+  final Map<WeatherParameter, double> _baseScale = {};
+
   final double minZoom = 1.0;
   final double maxZoom = 10.0;
 
-  // Derived once per fetch so chart and gesture handler share the same values
+  double _zoom(WeatherParameter p) => _zoomLevel[p] ?? 1.0;
+  double _pan(WeatherParameter p) => _panOffset[p] ?? 0.0;
+  double _base(WeatherParameter p) => _baseScale[p] ?? 1.0;
+
+  void _setZoom(WeatherParameter p, double v) =>
+      _zoomLevel[p] = v.clamp(minZoom, maxZoom);
+  void _setPan(WeatherParameter p, double v) => _panOffset[p] = v;
+  void _setBase(WeatherParameter p, double v) => _baseScale[p] = v;
+
+  // Derived once per fetch
   DateTime? _globalMinTime;
   double _totalMinutes = 0.0;
 
@@ -378,9 +374,10 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     setState(() {
       loading = true;
       error = null;
-      zoomLevel = 1.0;
-      panOffset = 0.0;
-      baseScale = 1.0;
+      // Reset all per-chart zoom/pan on fresh fetch
+      _zoomLevel.clear();
+      _panOffset.clear();
+      _baseScale.clear();
     });
 
     try {
@@ -425,7 +422,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     }
   }
 
-  /// Recompute the shared X-axis anchor (earliest timestamp across all devices).
   void _recalcGlobalTime() {
     DateTime? earliest;
     DateTime? latest;
@@ -445,13 +441,15 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
         : 0.0;
   }
 
-  void resetZoom() {
+  void resetZoom(WeatherParameter p) {
     setState(() {
-      zoomLevel = 1.0;
-      panOffset = 0.0;
-      baseScale = 1.0;
+      _zoomLevel[p] = 1.0;
+      _panOffset[p] = 0.0;
+      _baseScale[p] = 1.0;
     });
   }
+
+  bool get anyChartZoomed => _zoomLevel.values.any((z) => z > 1.0);
 
   // ─── Statistics ─────────────────────────────────────────────────────────────
 
@@ -555,11 +553,18 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
               tooltip: 'Refresh Data',
               onPressed: fetchComparisonData,
             ),
-          if (!loading && devicesData.isNotEmpty && zoomLevel > 1.0)
+          // Show reset only if at least one chart is zoomed in
+          if (!loading && devicesData.isNotEmpty && anyChartZoomed)
             IconButton(
               icon: const Icon(Icons.zoom_out_map),
-              tooltip: 'Reset Zoom',
-              onPressed: resetZoom,
+              tooltip: 'Reset All Zooms',
+              onPressed: () {
+                setState(() {
+                  _zoomLevel.clear();
+                  _panOffset.clear();
+                  _baseScale.clear();
+                });
+              },
             ),
         ],
       ),
@@ -785,10 +790,23 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Text(
-              parameterLabel(parameter),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  parameterLabel(parameter),
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                // Per-chart reset zoom button — visible only when this chart is zoomed
+                if (_zoom(parameter) > 1.0)
+                  TextButton.icon(
+                    icon: const Icon(Icons.zoom_out_map, size: 16),
+                    label: const Text('Reset', style: TextStyle(fontSize: 12)),
+                    onPressed: () => resetZoom(parameter),
+                  ),
+              ],
             ),
           ),
           SizedBox(
@@ -807,15 +825,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     );
   }
 
-  // ─── Chart (uses RAW per-device data — plots ALL readings) ──────────────────
-  //
-  // Key design:
-  //  • X-axis = elapsed minutes from the earliest timestamp across ALL devices.
-  //  • This means Device 4's 11:25 reading IS plotted (its line starts earlier).
-  //  • Device 5's line starts at its own first reading (11:30).
-  //  • Both lines share the same time axis, so they overlap from 11:30 onwards.
-  //  • Statistics (below) still use only the matched/overlapping buckets.
-  // ────────────────────────────────────────────────────────────────────────────
+  // ─── Chart ──────────────────────────────────────────────────────────────────
 
   Widget _buildChart(WeatherParameter parameter) {
     if (devicesData.isEmpty || _globalMinTime == null) {
@@ -828,6 +838,9 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     if (totalMinutes <= 0) {
       return const Center(child: Text('No data points available'));
     }
+
+    final zoomLevel = _zoom(parameter);
+    final panOffset = _pan(parameter);
 
     // Visible window in minutes
     final visibleMinutes = totalMinutes / zoomLevel;
@@ -868,43 +881,56 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
             (_PanZoomGestureRecognizer instance) {
               instance
                 ..onStart = (_) {
-                  baseScale = zoomLevel;
+                  _setBase(parameter, _zoom(parameter));
                 }
                 ..onUpdate = (details) {
-                  // Pinch-to-zoom
+                  // Pinch-to-zoom — only affects THIS chart
                   if (details.scale != 1.0) {
                     setState(() {
-                      zoomLevel = (baseScale * details.scale)
-                          .clamp(minZoom, maxZoom)
-                          .toDouble();
+                      _setZoom(parameter, _base(parameter) * details.scale);
                     });
                   }
-                  // Pan (horizontal)
+                  // Pan (horizontal) — only affects THIS chart
                   if (details.focalPointDelta.dx.abs() > 0.1) {
-                    final sensitivity = totalMinutes / (400 * zoomLevel);
-                    final newPan =
-                        (panOffset - details.focalPointDelta.dx * sensitivity)
-                            .clamp(0.0, max(0.0, totalMinutes - visibleMinutes))
-                            .toDouble();
-                    setState(() => panOffset = newPan);
+                    final sensitivity = totalMinutes / (400 * _zoom(parameter));
+                    final currentZoom = _zoom(parameter);
+                    final vis = totalMinutes / currentZoom;
+                    final newPan = (_pan(parameter) -
+                            details.focalPointDelta.dx * sensitivity)
+                        .clamp(0.0, max(0.0, totalMinutes - vis))
+                        .toDouble();
+                    setState(() => _setPan(parameter, newPan));
                   }
                 }
                 ..onEnd = (_) {
-                  baseScale = zoomLevel;
+                  _setBase(parameter, _zoom(parameter));
                 };
             },
           ),
         },
         child: Listener(
+          // ── Key fix: consume the event here so it does NOT propagate
+          // to the ScrollView or sibling charts. We do this by using
+          // onPointerSignal instead of onPointerPanZoom, and we call
+          // HardwareKeyboard to check for Shift, then handle it ourselves.
           onPointerSignal: (signal) {
             if (signal is PointerScrollEvent &&
                 HardwareKeyboard.instance.isShiftPressed) {
-              final delta = signal.scrollDelta.dy;
-              setState(() {
-                zoomLevel = delta < 0
-                    ? min(maxZoom, zoomLevel * 1.1)
-                    : max(minZoom, zoomLevel / 1.1);
-              });
+              // Mark the event as handled so the parent ScrollView ignores it
+              GestureBinding.instance.pointerSignalResolver.register(
+                signal,
+                (event) {
+                  if (event is PointerScrollEvent) {
+                    final delta = event.scrollDelta.dy;
+                    setState(() {
+                      final newZoom = delta < 0
+                          ? min(maxZoom, _zoom(parameter) * 1.1)
+                          : max(minZoom, _zoom(parameter) / 1.1);
+                      _setZoom(parameter, newZoom);
+                    });
+                  }
+                },
+              );
             }
           },
           child: LineChart(
@@ -950,7 +976,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
                     reservedSize: 30,
                     interval: max(1.0, (visibleMinutes / 10).ceilToDouble()),
                     getTitlesWidget: (value, _) {
-                      // Convert elapsed-minutes back to a wall-clock label
                       final labelTime = globalMin
                           .add(Duration(seconds: (value * 60).round()));
                       return Padding(
@@ -975,7 +1000,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
                       if (deviceIndex >= devicesData.length) return null;
                       final device = devicesData[deviceIndex];
 
-                      // Find the closest raw data point by elapsed minutes
                       WeatherData? closest;
                       double minDiff = double.infinity;
                       for (final d in device.data) {
@@ -1036,37 +1060,36 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
               'Statistics (Based on Matched Timestamps)',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            // ── Overlap notice ───────────────────────────────────────────────
             if (matchedDataPoints.isNotEmpty) ...[
               const SizedBox(height: 8),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.amber.shade300),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline,
-                        size: 16, color: Colors.amber.shade700),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Comparison starts from '
-                        '${DateFormat('HH:mm, dd-MM-yyyy').format(matchedDataPoints.first.timestamp)} '
-                        '— when all devices have data.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.amber.shade800,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              // Container(
+              //   padding:
+              //       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              //   decoration: BoxDecoration(
+              //     color: Colors.amber.shade50,
+              //     borderRadius: BorderRadius.circular(8),
+              //     border: Border.all(color: Colors.amber.shade300),
+              //   ),
+              // child: Row(
+              // children: [
+              //   Icon(Icons.info_outline,
+              //       size: 16, color: Colors.amber.shade700),
+              //   const SizedBox(width: 8),
+              // Expanded(
+              //   child: Text(
+              //     'Comparison starts from '
+              //     '${DateFormat('HH:mm, dd-MM-yyyy').format(matchedDataPoints.first.timestamp)} '
+              //     '— when all devices have data.',
+              //     style: TextStyle(
+              //       fontSize: 12,
+              //       color: Colors.amber.shade800,
+              //       fontStyle: FontStyle.italic,
+              //     ),
+              //   ),
+              //     // ),
+              //   ],
+              // ),
+              // ),
             ] else ...[
               const SizedBox(height: 8),
               const Text(
@@ -1087,7 +1110,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Parameter header
                   Container(
                     padding:
                         const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
