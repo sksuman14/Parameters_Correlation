@@ -300,7 +300,7 @@ String buildApiUrl({
       // WJ sensors use their own dedicated endpoint.
       // The deviceId corresponds to the numeric DeviceId field in the response
       // (e.g. 457 for IMEINumber "860738070351725").
-      return 'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/wjmetdata'
+      return 'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet0126data'
           '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate';
     case SensorType.cp:
       if (deviceId == 1) {
