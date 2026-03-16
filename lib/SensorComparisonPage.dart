@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
@@ -11,7 +13,7 @@ import 'package:intl/intl.dart';
 /// =======================
 /// SENSOR TYPE
 /// =======================
-enum SensorType { cp, sw }
+enum SensorType { cp, sw, wj }
 
 String sensorTypeLabel(SensorType t) {
   switch (t) {
@@ -19,6 +21,8 @@ String sensorTypeLabel(SensorType t) {
       return 'CP';
     case SensorType.sw:
       return 'SW';
+    case SensorType.wj:
+      return 'WJ';
   }
 }
 
@@ -45,8 +49,15 @@ class WeatherData {
   });
 
   factory WeatherData.fromJson(Map<String, dynamic> json) {
+    // WJ sensors return DeviceId as a string field inside the JSON body,
+    // but the shape of numeric fields is the same as CP/SW.
+    // TimeStamp may use a space separator ("2026-03-16 00:05:00") rather than 'T'.
+    final rawTs = (json['TimeStamp'] ?? '').toString().trim();
+    // Normalise "2026-03-16 00:05:00" → "2026-03-16T00:05:00"
+    final normTs = rawTs.replaceFirst(RegExp(r' (?=\d{2}:\d{2})'), 'T');
+
     return WeatherData(
-      timeStamp: DateTime.parse(json['TimeStamp']),
+      timeStamp: DateTime.parse(normTs),
       atmPressure: (json['AtmPressure'] ?? 0).toDouble(),
       currentTemperature: (json['CurrentTemperature'] ?? 0).toDouble(),
       currentHumidity: (json['CurrentHumidity'] ?? 0).toDouble(),
@@ -62,7 +73,7 @@ class WeatherData {
 /// =======================
 class MatchedDataPoint {
   final DateTime timestamp;
-  final Map<String, WeatherData> deviceData; // key: "CP_1", "SW_2", etc.
+  final Map<String, WeatherData> deviceData;
 
   MatchedDataPoint({
     required this.timestamp,
@@ -86,10 +97,7 @@ class DeviceData {
     required this.color,
   });
 
-  /// Unique key used in matched data maps
   String get key => '${sensorTypeLabel(sensorType)}_$deviceId';
-
-  /// Display label
   String get label => '${sensorTypeLabel(sensorType)} Device $deviceId';
 }
 
@@ -156,11 +164,9 @@ double getParameterValue(WeatherData d, WeatherParameter p) {
   }
 }
 
-/// Convert degrees to 16 cardinal directions
 String degreesToDirection(double degrees) {
   double normalized = degrees % 360;
   if (normalized < 0) normalized += 360;
-
   if (normalized >= 348.75 || normalized < 11.25) return 'N';
   if (normalized >= 11.25 && normalized < 33.75) return 'NNE';
   if (normalized >= 33.75 && normalized < 56.25) return 'NE';
@@ -179,11 +185,9 @@ String degreesToDirection(double degrees) {
   return 'NNW';
 }
 
-/// Get directional arrow showing where wind is coming FROM
 String getWindArrow(double degrees) {
   double normalized = degrees % 360;
   if (normalized < 0) normalized += 360;
-
   if (normalized >= 348.75 || normalized < 11.25) return '↓';
   if (normalized >= 11.25 && normalized < 56.25) return '↙';
   if (normalized >= 56.25 && normalized < 78.75) return '↙';
@@ -209,34 +213,26 @@ class TimestampMatcher {
 
   static List<MatchedDataPoint> matchTimestamps(List<DeviceData> devicesData) {
     if (devicesData.isEmpty) return [];
-
     final Map<DateTime, Map<String, WeatherData>> bucketMap = {};
-
     for (final device in devicesData) {
       for (final data in device.data) {
         final bucket = _bucket(data.timeStamp);
         bucketMap.putIfAbsent(bucket, () => {});
-
         if (!bucketMap[bucket]!.containsKey(device.key)) {
           bucketMap[bucket]![device.key] = data;
         }
       }
     }
-
     final int requiredCount = devicesData.length;
     final List<MatchedDataPoint> matchedPoints = [];
     final sortedBuckets = bucketMap.keys.toList()..sort();
-
     for (final bucket in sortedBuckets) {
       final deviceMap = bucketMap[bucket]!;
       if (deviceMap.length >= requiredCount) {
-        matchedPoints.add(MatchedDataPoint(
-          timestamp: bucket,
-          deviceData: deviceMap,
-        ));
+        matchedPoints
+            .add(MatchedDataPoint(timestamp: bucket, deviceData: deviceMap));
       }
     }
-
     return matchedPoints;
   }
 }
@@ -262,12 +258,11 @@ class ColorPalette {
     Colors.lightGreen,
     Colors.deepPurple,
   ];
-
   static Color getColor(int index) => chartColors[index % chartColors.length];
 }
 
 /// =======================
-/// SENSOR ENTRY (holds deviceId + sensorType)
+/// SENSOR ENTRY
 /// =======================
 class SensorEntry {
   final int deviceId;
@@ -289,7 +284,7 @@ class SensorEntry {
 }
 
 /// =======================
-/// API BUILDER
+/// API BUILDER — chart data
 /// =======================
 String buildApiUrl({
   required int deviceId,
@@ -297,18 +292,124 @@ String buildApiUrl({
   required String startDate,
   required String endDate,
 }) {
-  if (sensorType == SensorType.sw) {
-    return 'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet1225data'
-        '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate';
+  switch (sensorType) {
+    case SensorType.sw:
+      return 'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet1225data'
+          '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate';
+    case SensorType.wj:
+      // WJ sensors use their own dedicated endpoint.
+      // The deviceId corresponds to the numeric DeviceId field in the response
+      // (e.g. 457 for IMEINumber "860738070351725").
+      return 'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/wjmetdata'
+          '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate';
+    case SensorType.cp:
+      if (deviceId == 1) {
+        return 'https://d3g5fo66jwc4iw.cloudfront.net/campusdata'
+            '?deviceid=1&startdate=$startDate&enddate=$endDate';
+      } else {
+        return 'https://d3dj66m23j48gu.cloudfront.net/campusdata'
+            '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate';
+      }
   }
-  // CP sensors
-  if (deviceId == 1) {
-    return 'https://d3g5fo66jwc4iw.cloudfront.net/campusdata'
-        '?deviceid=1&startdate=$startDate&enddate=$endDate';
-  } else {
-    return 'https://d3dj66m23j48gu.cloudfront.net/campusdata'
-        '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate';
+}
+
+/// =======================
+/// API BUILDER — CSV export (returns JSON with download_url)
+/// =======================
+String buildDownloadApiUrl({
+  required int deviceId,
+  required SensorType sensorType,
+  required String startDate,
+  required String endDate,
+}) {
+  switch (sensorType) {
+    case SensorType.sw:
+      return 'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet1225data'
+          '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate&mode=download';
+    case SensorType.wj:
+      return 'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/wjmetdata'
+          '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate&mode=download';
+    case SensorType.cp:
+      // CP sensors both use the same gateway endpoint for download
+      return 'https://i1g1n1ufu0.execute-api.us-east-1.amazonaws.com/campusdata'
+          '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate&mode=download';
   }
+}
+
+/// =======================
+/// RAW CSV PARSER
+/// =======================
+class _RawCsvData {
+  final Map<String, Map<String, String>> rows;
+  final List<String> columns;
+
+  _RawCsvData({required this.rows, required this.columns});
+}
+
+_RawCsvData _parseSensorCsv(String raw) {
+  final lines = raw.replaceAll('\r\n', '\n').replaceAll('\r', '\n').split('\n');
+
+  while (lines.isNotEmpty && lines.last.trim().isEmpty) {
+    lines.removeLast();
+  }
+
+  if (lines.isEmpty) return _RawCsvData(rows: {}, columns: []);
+
+  final headers = _splitCsvLine(lines[0]);
+
+  final tsIndex = headers.indexWhere((h) {
+    final l = h.trim().toLowerCase();
+    return l.contains('timestamp') || l == 'time' || l == 'datetime';
+  });
+  final effectiveTsIndex = tsIndex >= 0 ? tsIndex : 0;
+
+  final dataColumns = <String>[];
+  for (int i = 0; i < headers.length; i++) {
+    if (i != effectiveTsIndex) dataColumns.add(headers[i].trim());
+  }
+
+  final Map<String, Map<String, String>> rows = {};
+  for (int li = 1; li < lines.length; li++) {
+    final line = lines[li].trim();
+    if (line.isEmpty) continue;
+    final cells = _splitCsvLine(line);
+    if (cells.length <= effectiveTsIndex) continue;
+
+    final ts = cells[effectiveTsIndex].trim();
+    final rowMap = <String, String>{};
+    for (int ci = 0; ci < headers.length; ci++) {
+      if (ci == effectiveTsIndex) continue;
+      final colName = headers[ci].trim();
+      rowMap[colName] = ci < cells.length ? cells[ci].trim() : '';
+    }
+    rows[ts] = rowMap;
+  }
+
+  return _RawCsvData(rows: rows, columns: dataColumns);
+}
+
+List<String> _splitCsvLine(String line) {
+  final result = <String>[];
+  final sb = StringBuffer();
+  bool inQuotes = false;
+  for (int i = 0; i < line.length; i++) {
+    final ch = line[i];
+    if (ch == '"') {
+      if (inQuotes && i + 1 < line.length && line[i + 1] == '"') {
+        sb.write('"');
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch == ',' && !inQuotes) {
+      result.add(sb.toString());
+      sb.clear();
+    } else {
+      sb.write(ch);
+    }
+  }
+  result.add(sb.toString());
+  return result;
 }
 
 /// =======================
@@ -339,9 +440,9 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
   List<MatchedDataPoint> matchedDataPoints = [];
 
   bool loading = false;
+  bool csvLoading = false;
   String? error;
 
-  // ── Per-chart zoom/pan state
   final Map<WeatherParameter, double> _zoomLevel = {};
   final Map<WeatherParameter, double> _panOffset = {};
   final Map<WeatherParameter, double> _baseScale = {};
@@ -361,7 +462,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
   DateTime? _globalMinTime;
   double _totalMinutes = 0.0;
 
-  // ─── Date Picker ────────────────────────────────────────────────────────────
+  // ─── Date Picker ─────────────────────────────────────────────────────────────
 
   Future<void> pickDate(bool isStart) async {
     final picked = await showDatePicker(
@@ -372,16 +473,15 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     );
     if (picked != null) {
       setState(() {
-        if (isStart) {
+        if (isStart)
           startDate = picked;
-        } else {
+        else
           endDate = picked;
-        }
       });
     }
   }
 
-  // ─── Sensor Management ──────────────────────────────────────────────────────
+  // ─── Sensor Management ───────────────────────────────────────────────────────
 
   void addSensor() {
     final deviceId = int.tryParse(newDeviceController.text);
@@ -413,18 +513,16 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     });
   }
 
-  void _snack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-  }
+  void _snack(String msg) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 
-  // ─── Fetch ──────────────────────────────────────────────────────────────────
+  // ─── Fetch chart data ─────────────────────────────────────────────────────────
 
   Future<void> fetchComparisonData() async {
     if (selectedSensors.isEmpty) {
       setState(() => error = 'Please add at least one sensor');
       return;
     }
-
     setState(() {
       loading = true;
       error = null;
@@ -432,11 +530,9 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
       _panOffset.clear();
       _baseScale.clear();
     });
-
     try {
       final start = DateFormat('dd-MM-yyyy').format(startDate);
       final end = DateFormat('dd-MM-yyyy').format(endDate);
-
       final List<DeviceData> fetchedData = [];
 
       for (int i = 0; i < selectedSensors.length; i++) {
@@ -448,16 +544,13 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
           endDate: end,
         );
         final response = await http.get(Uri.parse(url));
-
         if (response.statusCode != 200) {
           throw Exception(
               'Failed to load data for ${sensor.label} (HTTP ${response.statusCode})');
         }
-
         final body = json.decode(response.body);
         final items = body['items'] as List;
         final data = items.map((e) => WeatherData.fromJson(e)).toList();
-
         fetchedData.add(DeviceData(
           deviceId: sensor.deviceId,
           sensorType: sensor.sensorType,
@@ -467,7 +560,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
       }
 
       final matched = TimestampMatcher.matchTimestamps(fetchedData);
-
       setState(() {
         devicesData = fetchedData;
         matchedDataPoints = matched;
@@ -487,12 +579,9 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     DateTime? latest;
     for (final device in devicesData) {
       for (final d in device.data) {
-        if (earliest == null || d.timeStamp.isBefore(earliest)) {
+        if (earliest == null || d.timeStamp.isBefore(earliest))
           earliest = d.timeStamp;
-        }
-        if (latest == null || d.timeStamp.isAfter(latest)) {
-          latest = d.timeStamp;
-        }
+        if (latest == null || d.timeStamp.isAfter(latest)) latest = d.timeStamp;
       }
     }
     _globalMinTime = earliest;
@@ -511,31 +600,148 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
 
   bool get anyChartZoomed => _zoomLevel.values.any((z) => z > 1.0);
 
-  // ─── Statistics ─────────────────────────────────────────────────────────────
+  // ─── CSV Download ──────────────────────────────────────────────────────────────
+
+  Future<void> downloadCsv() async {
+    if (devicesData.isEmpty) {
+      _snack('No data loaded yet — please compare sensors first');
+      return;
+    }
+    setState(() => csvLoading = true);
+
+    try {
+      final start = DateFormat('dd-MM-yyyy').format(startDate);
+      final end = DateFormat('dd-MM-yyyy').format(endDate);
+
+      final List<({SensorEntry sensor, String downloadUrl})> downloadLinks = [];
+
+      for (final sensor in selectedSensors) {
+        final apiUrl = buildDownloadApiUrl(
+          deviceId: sensor.deviceId,
+          sensorType: sensor.sensorType,
+          startDate: start,
+          endDate: end,
+        );
+
+        final resp = await http.get(Uri.parse(apiUrl));
+        if (resp.statusCode != 200) {
+          throw Exception(
+              'Download API failed for ${sensor.label} (HTTP ${resp.statusCode})');
+        }
+
+        final body = json.decode(resp.body) as Map<String, dynamic>;
+        final downloadUrl = body['download_url'] as String?;
+        if (downloadUrl == null || downloadUrl.isEmpty) {
+          throw Exception('No download_url returned for ${sensor.label}');
+        }
+
+        downloadLinks.add((sensor: sensor, downloadUrl: downloadUrl));
+      }
+
+      final List<({SensorEntry sensor, _RawCsvData csv})> sensorCsvs = [];
+
+      for (final link in downloadLinks) {
+        final s3Resp = await http.get(Uri.parse(link.downloadUrl));
+        if (s3Resp.statusCode != 200) {
+          throw Exception(
+              'Failed to fetch S3 CSV for ${link.sensor.label} (HTTP ${s3Resp.statusCode})');
+        }
+        sensorCsvs.add((
+          sensor: link.sensor,
+          csv: _parseSensorCsv(s3Resp.body),
+        ));
+      }
+
+      final Set<String> allTimestamps = {};
+      for (final sc in sensorCsvs) {
+        allTimestamps.addAll(sc.csv.rows.keys);
+      }
+      final sortedTimestamps = allTimestamps.toList()..sort();
+
+      final List<String> orderedCols = [];
+      final Set<String> seenCols = {};
+      for (final sc in sensorCsvs) {
+        for (final col in sc.csv.columns) {
+          if (!seenCols.contains(col)) {
+            seenCols.add(col);
+            orderedCols.add(col);
+          }
+        }
+      }
+
+      final headerCells = <String>['Timestamp'];
+      for (final col in orderedCols) {
+        for (final sc in sensorCsvs) {
+          headerCells.add('${col}_${sc.sensor.key}');
+        }
+      }
+
+      final csvLines = <String>[headerCells.join(',')];
+
+      for (final ts in sortedTimestamps) {
+        final cells = <String>[ts];
+        for (final col in orderedCols) {
+          for (final sc in sensorCsvs) {
+            final rowData = sc.csv.rows[ts];
+            cells.add(rowData?[col] ?? '');
+          }
+        }
+        csvLines.add(cells.join(','));
+      }
+
+      final csvContent = csvLines.join('\n');
+
+      final startStr = DateFormat('yyyyMMdd').format(startDate);
+      final endStr = DateFormat('yyyyMMdd').format(endDate);
+      final sensorKeys = selectedSensors.map((s) => s.key).join('_');
+      final fileName =
+          'sensor_comparison_${sensorKeys}_${startStr}_$endStr.csv';
+
+      _triggerBrowserDownload(csvContent, fileName);
+      _snack('✓ Downloaded $fileName  (${sortedTimestamps.length} rows)');
+    } catch (e) {
+      _snack('CSV download failed: $e');
+    } finally {
+      setState(() => csvLoading = false);
+    }
+  }
+
+  void _triggerBrowserDownload(String content, String fileName) {
+    final bytes = utf8.encode(content);
+    final blob = html.Blob([bytes], 'text/csv;charset=utf-8;');
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    final anchor = html.AnchorElement(href: url)
+      ..setAttribute('download', fileName)
+      ..style.display = 'none';
+    html.document.body!.append(anchor);
+    anchor.click();
+    anchor.remove();
+    Future.delayed(
+      const Duration(milliseconds: 200),
+      () => html.Url.revokeObjectUrl(url),
+    );
+  }
+
+  // ─── Statistics ───────────────────────────────────────────────────────────────
 
   Map<WeatherParameter, Map<String, Map<String, double>>>
       calculateStatistics() {
     if (matchedDataPoints.isEmpty) return {};
-
     final Map<WeatherParameter, Map<String, Map<String, double>>> allStats = {};
-
     for (final parameter in selectedParameters) {
       final Map<String, List<double>> deviceValues = {};
-
-      for (final matchedPoint in matchedDataPoints) {
-        for (final entry in matchedPoint.deviceData.entries) {
+      for (final mp in matchedDataPoints) {
+        for (final entry in mp.deviceData.entries) {
           deviceValues
               .putIfAbsent(entry.key, () => [])
               .add(getParameterValue(entry.value, parameter));
         }
       }
-
-      final Map<String, Map<String, double>> stats = {
-        'max': {},
-        'min': {},
-        'avg': {},
+      final stats = {
+        'max': <String, double>{},
+        'min': <String, double>{},
+        'avg': <String, double>{},
       };
-
       for (final entry in deviceValues.entries) {
         final values = entry.value;
         if (values.isNotEmpty) {
@@ -545,29 +751,23 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
               values.reduce((a, b) => a + b) / values.length;
         }
       }
-
       allStats[parameter] = stats;
     }
-
     return allStats;
   }
 
   Map<WeatherParameter, Map<String, Map<String, double>>>
       calculateDifferenceStatistics() {
     if (matchedDataPoints.isEmpty || selectedSensors.length < 2) return {};
-
     final Map<WeatherParameter, Map<String, Map<String, double>>> allDiffStats =
         {};
-
     for (final parameter in selectedParameters) {
       final Map<String, Map<String, double>> diffStats = {};
-
       for (int i = 0; i < selectedSensors.length - 1; i++) {
         for (int j = i + 1; j < selectedSensors.length; j++) {
           final keyA = selectedSensors[i].key;
           final keyB = selectedSensors[j].key;
           final List<double> differences = [];
-
           for (final mp in matchedDataPoints) {
             final dataA = mp.deviceData[keyA];
             final dataB = mp.deviceData[keyB];
@@ -579,7 +779,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
               );
             }
           }
-
           if (differences.isNotEmpty) {
             diffStats['$keyA vs $keyB'] = {
               'maxDiff': differences.reduce(max),
@@ -590,14 +789,12 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
           }
         }
       }
-
       allDiffStats[parameter] = diffStats;
     }
-
     return allDiffStats;
   }
 
-  // ─── Build ──────────────────────────────────────────────────────────────────
+  // ─── Build ────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -608,12 +805,29 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
         actions: [
-          if (!loading && devicesData.isNotEmpty)
+          if (!loading && devicesData.isNotEmpty) ...[
+            if (csvLoading)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
+                ),
+              )
+            else
+              IconButton(
+                icon: const Icon(Icons.download),
+                tooltip: 'Download CSV',
+                onPressed: downloadCsv,
+              ),
             IconButton(
               icon: const Icon(Icons.refresh),
               tooltip: 'Refresh Data',
               onPressed: fetchComparisonData,
             ),
+          ],
           if (!loading && devicesData.isNotEmpty && anyChartZoomed)
             IconButton(
               icon: const Icon(Icons.zoom_out_map),
@@ -652,6 +866,8 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
             if (error != null)
               Text(error!, style: const TextStyle(color: Colors.red)),
             if (!loading && devicesData.isNotEmpty) ...[
+              _buildDownloadBanner(),
+              const SizedBox(height: 16),
               ...selectedParameters.map(
                 (parameter) => Column(
                   children: [
@@ -668,7 +884,64 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     );
   }
 
-  // ─── Sensor Selector Card ───────────────────────────────────────────────────
+  // ─── Download Banner ──────────────────────────────────────────────────────────
+
+  Widget _buildDownloadBanner() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.deepPurple.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.deepPurple.shade200),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.table_chart, color: Colors.deepPurple, size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Export Raw Sensor Data',
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.deepPurple),
+                ),
+                Text(
+                  'All parameters · ${selectedSensors.length} sensors · grouped by parameter',
+                  style: TextStyle(
+                      fontSize: 12, color: Colors.deepPurple.shade400),
+                ),
+              ],
+            ),
+          ),
+          if (csvLoading)
+            const SizedBox(
+              width: 32,
+              height: 32,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            ElevatedButton.icon(
+              icon: const Icon(Icons.download, size: 18),
+              label: const Text('Download CSV'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                textStyle: const TextStyle(fontSize: 13),
+              ),
+              onPressed: downloadCsv,
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Sensor Selector Card ─────────────────────────────────────────────────────
 
   Widget _buildSensorSelector() {
     return Card(
@@ -677,20 +950,20 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Selected Sensors',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
+            const Text('Selected Sensors',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
             Row(
               children: [
                 _sensorTypeLegendDot(Colors.blue),
                 const SizedBox(width: 4),
-                const Text('CP = Campus sensor  ',
-                    style: TextStyle(fontSize: 12)),
+                const Text('CP = Campus  ', style: TextStyle(fontSize: 12)),
                 _sensorTypeLegendDot(Colors.teal),
                 const SizedBox(width: 4),
-                const Text('SW = SW sensor', style: TextStyle(fontSize: 12)),
+                const Text('SW = SW  ', style: TextStyle(fontSize: 12)),
+                _sensorTypeLegendDot(Colors.deepOrange),
+                const SizedBox(width: 4),
+                const Text('WJ = WJ sensor', style: TextStyle(fontSize: 12)),
               ],
             ),
             const SizedBox(height: 12),
@@ -723,7 +996,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
             const SizedBox(height: 16),
             Row(
               children: [
-                // Sensor type toggle
                 Container(
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.grey.shade400),
@@ -791,7 +1063,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
         decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       );
 
-  // ─── Parameter & Date Selector ──────────────────────────────────────────────
+  // ─── Parameter & Date Selector ────────────────────────────────────────────────
 
   Widget _buildParameterAndDateSelector() {
     return Card(
@@ -800,10 +1072,8 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Select Parameters',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
+            const Text('Select Parameters',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
@@ -863,7 +1133,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     );
   }
 
-  // ─── Legend ─────────────────────────────────────────────────────────────────
+  // ─── Legend ───────────────────────────────────────────────────────────────────
 
   Widget _buildLegend() {
     return Wrap(
@@ -892,7 +1162,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     );
   }
 
-  // ─── Chart Card ─────────────────────────────────────────────────────────────
+  // ─── Chart Card ───────────────────────────────────────────────────────────────
 
   Widget _buildChartCard(WeatherParameter parameter) {
     return Container(
@@ -947,32 +1217,26 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     );
   }
 
-  // ─── Chart ──────────────────────────────────────────────────────────────────
+  // ─── Chart ────────────────────────────────────────────────────────────────────
 
   Widget _buildChart(WeatherParameter parameter) {
     if (devicesData.isEmpty || _globalMinTime == null) {
       return const Center(child: Text('No data available'));
     }
-
     final globalMin = _globalMinTime!;
     final totalMinutes = _totalMinutes;
-
     if (totalMinutes <= 0) {
       return const Center(child: Text('No data points available'));
     }
 
     final zoomLevel = _zoom(parameter);
     final panOffset = _pan(parameter);
-
-    // Guard: totalMinutes must be > 0 (already checked above), but ensure
-    // the visible window is never zero-width (fl_chart asserts minX < maxX).
     final effectiveTotal = totalMinutes < 1.0 ? 1.0 : totalMinutes;
     final visibleMinutes = effectiveTotal / zoomLevel;
     final maxPan = max(0.0, effectiveTotal - visibleMinutes);
     final clampedPan = panOffset.clamp(0.0, maxPan).toDouble();
     final rawMinX = clampedPan;
     final rawMaxX = min(clampedPan + visibleMinutes, effectiveTotal);
-    // Guarantee minX < maxX even for a single data-point edge case
     final minXMin = rawMinX;
     final maxXMin = rawMaxX > rawMinX ? rawMaxX : rawMinX + 1.0;
 
@@ -1002,8 +1266,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
       }
     }
 
-    // Guard: fl_chart asserts minY < maxY. If all values are identical,
-    // add a symmetric padding of 1 unit so the chart renders cleanly.
     if (allYMin == double.infinity) {
       allYMin = 0;
       allYMax = 1;
@@ -1011,7 +1273,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
       allYMin -= 1;
       allYMax += 1;
     } else {
-      // Add 5 % padding so lines are never flush with the chart border
       final yPad = (allYMax - allYMin) * 0.05;
       allYMin -= yPad;
       allYMax += yPad;
@@ -1039,8 +1300,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
                     final effectiveTot =
                         _totalMinutes < 1.0 ? 1.0 : _totalMinutes;
                     final sensitivity = effectiveTot / (400 * _zoom(parameter));
-                    final currentZoom = _zoom(parameter);
-                    final vis = effectiveTot / currentZoom;
+                    final vis = effectiveTot / _zoom(parameter);
                     final newPan = (_pan(parameter) -
                             details.focalPointDelta.dx * sensitivity)
                         .clamp(0.0, max(0.0, effectiveTot - vis))
@@ -1058,20 +1318,18 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
           onPointerSignal: (signal) {
             if (signal is PointerScrollEvent &&
                 HardwareKeyboard.instance.isShiftPressed) {
-              GestureBinding.instance.pointerSignalResolver.register(
-                signal,
-                (event) {
-                  if (event is PointerScrollEvent) {
-                    final delta = event.scrollDelta.dy;
-                    setState(() {
-                      final newZoom = delta < 0
-                          ? min(maxZoom, _zoom(parameter) * 1.1)
-                          : max(minZoom, _zoom(parameter) / 1.1);
-                      _setZoom(parameter, newZoom);
-                    });
-                  }
-                },
-              );
+              GestureBinding.instance.pointerSignalResolver.register(signal,
+                  (event) {
+                if (event is PointerScrollEvent) {
+                  final delta = event.scrollDelta.dy;
+                  setState(() {
+                    final newZoom = delta < 0
+                        ? min(maxZoom, _zoom(parameter) * 1.1)
+                        : max(minZoom, _zoom(parameter) / 1.1);
+                    _setZoom(parameter, newZoom);
+                  });
+                }
+              });
             }
           },
           child: LineChart(
@@ -1142,7 +1400,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
                       final deviceIndex = spot.barIndex;
                       if (deviceIndex >= devicesData.length) return null;
                       final device = devicesData[deviceIndex];
-
                       WeatherData? closest;
                       double minDiff = double.infinity;
                       for (final d in device.data) {
@@ -1155,11 +1412,9 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
                         }
                       }
                       if (closest == null) return null;
-
                       final ts = DateFormat('dd-MM-yyyy HH:mm:ss')
                           .format(closest.timeStamp);
                       final value = getParameterValue(closest, parameter);
-
                       String fmt(double v) {
                         if (parameter == WeatherParameter.windDirection) {
                           return '${v.toStringAsFixed(1)}° '
@@ -1187,12 +1442,11 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     );
   }
 
-  // ─── Statistics Card ────────────────────────────────────────────────────────
+  // ─── Statistics Card ──────────────────────────────────────────────────────────
 
   Widget _buildStatisticsCard() {
     final allStats = calculateStatistics();
     final allDiffStats = calculateDifferenceStatistics();
-
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1219,7 +1473,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
               final diffStats = allDiffStats[parameter] ?? {};
               final unit = parameterUnit(parameter);
               final isWind = parameter == WeatherParameter.windDirection;
-
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1291,17 +1544,14 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: TextStyle(
-              fontSize: 14, fontWeight: FontWeight.w600, color: color),
-        ),
+        Text(title,
+            style: TextStyle(
+                fontSize: 14, fontWeight: FontWeight.w600, color: color)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 16,
           runSpacing: 8,
           children: values.entries.map((entry) {
-            // Find the device index by key for color lookup
             final deviceIndex =
                 devicesData.indexWhere((d) => d.key == entry.key);
             final deviceColor =
@@ -1333,16 +1583,13 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: diffStats.entries.map((entry) {
-        // entry.key is e.g. "CP_1 vs SW_2"
         final parts = entry.key.split(' vs ');
         final keyA = parts[0];
         final keyB = parts.length > 1 ? parts[1] : '';
-
         final indexA = devicesData.indexWhere((d) => d.key == keyA);
         final indexB = devicesData.indexWhere((d) => d.key == keyB);
         final colorA = indexA >= 0 ? devicesData[indexA].color : Colors.grey;
         final colorB = indexB >= 0 ? devicesData[indexB].color : Colors.grey;
-
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
           child: Container(
@@ -1398,10 +1645,9 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
   }
 
   Widget _dot(Color color) => Container(
-        width: 12,
-        height: 12,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      );
+      width: 12,
+      height: 12,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle));
 
   Widget _buildDiffStatItem(
       String label, double value, String unit, Color color, IconData icon) {
@@ -1422,8 +1668,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
       ],
     );
   }
-
-  // ─── Wind Direction Info ─────────────────────────────────────────────────────
 
   Widget _buildWindDirectionInfo() {
     if (devicesData.isEmpty) return const SizedBox.shrink();
