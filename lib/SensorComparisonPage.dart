@@ -303,9 +303,9 @@ String buildApiUrl({
       return 'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet0126data'
           '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate';
     case SensorType.cp:
-      if (deviceId == 1) {
+      if (deviceId == 1 || deviceId == 3) {
         return 'https://d3g5fo66jwc4iw.cloudfront.net/campusdata'
-            '?deviceid=1&startdate=$startDate&enddate=$endDate';
+            '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate';
       } else {
         return 'https://d3dj66m23j48gu.cloudfront.net/campusdata'
             '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate';
