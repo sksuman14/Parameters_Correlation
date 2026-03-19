@@ -49,11 +49,7 @@ class WeatherData {
   });
 
   factory WeatherData.fromJson(Map<String, dynamic> json) {
-    // WJ sensors return DeviceId as a string field inside the JSON body,
-    // but the shape of numeric fields is the same as CP/SW.
-    // TimeStamp may use a space separator ("2026-03-16 00:05:00") rather than 'T'.
     final rawTs = (json['TimeStamp'] ?? '').toString().trim();
-    // Normalise "2026-03-16 00:05:00" → "2026-03-16T00:05:00"
     final normTs = rawTs.replaceFirst(RegExp(r' (?=\d{2}:\d{2})'), 'T');
 
     return WeatherData(
@@ -65,6 +61,97 @@ class WeatherData {
       rainfallHourly: (json['RainfallHourly'] ?? 0).toDouble(),
       windDirection: (json['WindDirection'] ?? 0).toDouble(),
     );
+  }
+}
+
+/// =======================
+/// IMD DATA MODEL
+/// =======================
+class IMDData {
+  final DateTime timeStamp;
+  final double currTemp;
+  final double minTemp;
+  final double maxTemp;
+  final double relativeHumidity;
+  final double mslp;
+  final double windSpeed;
+  final double windDirection;
+  final String station;
+
+  IMDData({
+    required this.timeStamp,
+    required this.currTemp,
+    required this.minTemp,
+    required this.maxTemp,
+    required this.relativeHumidity,
+    required this.mslp,
+    required this.windSpeed,
+    required this.windDirection,
+    required this.station,
+  });
+
+  factory IMDData.fromJson(Map<String, dynamic> json) {
+    final rawTs = (json['Timestamp'] ?? '').toString().trim();
+    final normTs = rawTs.replaceFirst(RegExp(r' (?=\d{2}:\d{2})'), 'T');
+
+    double _parse(dynamic v) {
+      if (v == null) return 0.0;
+      if (v is num) return v.toDouble();
+      return double.tryParse(v.toString()) ?? 0.0;
+    }
+
+    return IMDData(
+      timeStamp: DateTime.parse(normTs),
+      currTemp: _parse(json['CURR_TEMP']),
+      minTemp: _parse(json['MIN_TEMP']),
+      maxTemp: _parse(json['MAX_TEMP']),
+      relativeHumidity: _parse(json['RH']),
+      mslp: _parse(json['MSLP']),
+      windSpeed: _parse(json['WIND_SPEED']),
+      windDirection: _parse(json['WIND_DIRECTION']),
+      station: (json['STATION'] ?? '').toString(),
+    );
+  }
+}
+
+/// =======================
+/// IMD COMPARISON PARAMETER
+/// =======================
+enum IMDCompareParameter {
+  temperature,
+  humidity,
+  pressure,
+  windSpeed,
+  windDirection,
+}
+
+String imdParamLabel(IMDCompareParameter p) {
+  switch (p) {
+    case IMDCompareParameter.temperature:
+      return 'Temperature (°C)';
+    case IMDCompareParameter.humidity:
+      return 'Humidity (%)';
+    case IMDCompareParameter.pressure:
+      return 'Pressure (hPa)';
+    case IMDCompareParameter.windSpeed:
+      return 'Wind Speed (m/s)';
+    case IMDCompareParameter.windDirection:
+      return 'Wind Direction (°)';
+  }
+}
+
+String imdParamUnit(IMDCompareParameter p) {
+  switch (p) {
+    case IMDCompareParameter.temperature:
+      return '°C';
+    case IMDCompareParameter.humidity:
+      return '%';
+    case IMDCompareParameter.pressure:
+      return 'hPa';
+    case IMDCompareParameter.windSpeed:
+      return 'm/s';
+    case IMDCompareParameter.windDirection:
+      return '°';
   }
 }
 
@@ -297,9 +384,6 @@ String buildApiUrl({
       return 'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet1225data'
           '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate';
     case SensorType.wj:
-      // WJ sensors use their own dedicated endpoint.
-      // The deviceId corresponds to the numeric DeviceId field in the response
-      // (e.g. 457 for IMEINumber "860738070351725").
       return 'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet0126data'
           '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate';
     case SensorType.cp:
@@ -314,7 +398,7 @@ String buildApiUrl({
 }
 
 /// =======================
-/// API BUILDER — CSV export (returns JSON with download_url)
+/// API BUILDER — CSV export
 /// =======================
 String buildDownloadApiUrl({
   required int deviceId,
@@ -330,7 +414,6 @@ String buildDownloadApiUrl({
       return 'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/wjmetdata'
           '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate&mode=download';
     case SensorType.cp:
-      // CP sensors both use the same gateway endpoint for download
       return 'https://i1g1n1ufu0.execute-api.us-east-1.amazonaws.com/campusdata'
           '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate&mode=download';
   }
@@ -412,9 +495,1015 @@ List<String> _splitCsvLine(String line) {
   return result;
 }
 
-/// =======================
-/// PAGE
-/// =======================
+// ════════════════════════════════════════════════════════════
+//  IMD ↔ SW007 COMPARISON SECTION — standalone StatefulWidget
+// ════════════════════════════════════════════════════════════
+
+/// Buckets SW007 data to 15-min intervals (to match IMD cadence).
+WeatherData? _bucketSW15(List<WeatherData> raw, DateTime bucket) {
+  // Collect all raw points in [bucket, bucket+15min)
+  final window = raw.where((d) {
+    final diff = d.timeStamp.difference(bucket).inMinutes;
+    return diff >= 0 && diff < 15;
+  }).toList();
+  if (window.isEmpty) return null;
+  // Average all fields in the window
+  double avg(double Function(WeatherData) f) =>
+      window.map(f).reduce((a, b) => a + b) / window.length;
+  return WeatherData(
+    timeStamp: bucket,
+    atmPressure: avg((d) => d.atmPressure),
+    currentTemperature: avg((d) => d.currentTemperature),
+    currentHumidity: avg((d) => d.currentHumidity),
+    windSpeed: avg((d) => d.windSpeed),
+    rainfallHourly: avg((d) => d.rainfallHourly),
+    windDirection: avg((d) => d.windDirection),
+  );
+}
+
+class IMDComparisonSection extends StatefulWidget {
+  const IMDComparisonSection({Key? key}) : super(key: key);
+
+  @override
+  State<IMDComparisonSection> createState() => _IMDComparisonSectionState();
+}
+
+class _IMDComparisonSectionState extends State<IMDComparisonSection> {
+  // ── state ──────────────────────────────────────────────────────────────────
+  DateTime _startDate = DateTime.now();
+  DateTime _endDate = DateTime.now();
+
+  List<IMDData> _imdData = [];
+  List<WeatherData> _sw007Raw = []; // raw 5-min data
+  List<WeatherData> _sw007Bucketed = []; // bucketed to 15-min
+
+  bool _loading = false;
+  bool _csvLoading = false;
+  String? _error;
+
+  List<IMDCompareParameter> _selectedParams = [IMDCompareParameter.temperature];
+
+  // zoom / pan per parameter
+  final Map<IMDCompareParameter, double> _zoom = {};
+  final Map<IMDCompareParameter, double> _pan = {};
+  final Map<IMDCompareParameter, double> _base = {};
+
+  static const double _minZoom = 1.0;
+  static const double _maxZoom = 10.0;
+
+  DateTime? _globalMin;
+  double _totalMinutes = 0.0;
+
+  // IMD station ID (hard-coded; could be made configurable)
+  static const String _imdStationId = 'CGDAC000';
+  static const int _sw007DeviceId = 7;
+
+  // Color assignment
+  static const Color _imdColor = Color(0xFF1565C0); // deep blue
+  static const Color _swColor = Color(0xFFE65100); // deep orange
+
+  // ── helpers ────────────────────────────────────────────────────────────────
+
+  String _fmtDate(DateTime d) => DateFormat('d-M-yyyy').format(d);
+  String _fmtApiDate(DateTime d) => DateFormat('dd-MM-yyyy').format(d);
+
+  void _snack(String msg) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+
+  Future<void> _pickDate(bool isStart) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: isStart ? _startDate : _endDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+    );
+    if (picked != null) {
+      setState(() {
+        if (isStart)
+          _startDate = picked;
+        else
+          _endDate = picked;
+      });
+    }
+  }
+
+  // ── fetch ──────────────────────────────────────────────────────────────────
+
+  Future<void> _fetchData() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+      _zoom.clear();
+      _pan.clear();
+      _base.clear();
+    });
+
+    try {
+      // ── IMD ────────────────────────────────────────────────────────────────
+      final imdUrl =
+          'https://914ed7hixg.execute-api.us-east-1.amazonaws.com/default/IMD_AWS-ARG_Data_API'
+          '?ID=$_imdStationId&startdate=${_fmtDate(_startDate)}&enddate=${_fmtDate(_endDate)}';
+
+      final imdResp = await http.get(Uri.parse(imdUrl));
+      if (imdResp.statusCode != 200) {
+        throw Exception('IMD API error (HTTP ${imdResp.statusCode})');
+      }
+
+      final imdBody = json.decode(imdResp.body);
+      List<dynamic> imdItems;
+      if (imdBody is List) {
+        imdItems = imdBody;
+      } else if (imdBody is Map && imdBody.containsKey('items')) {
+        imdItems = imdBody['items'] as List;
+      } else {
+        imdItems = [imdBody];
+      }
+      final imdData = imdItems
+          .map((e) => IMDData.fromJson(e as Map<String, dynamic>))
+          .toList();
+
+      // ── SW007 ──────────────────────────────────────────────────────────────
+      final swUrl =
+          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet1225data'
+          '?deviceid=$_sw007DeviceId&startdate=${_fmtApiDate(_startDate)}&enddate=${_fmtApiDate(_endDate)}';
+
+      final swResp = await http.get(Uri.parse(swUrl));
+      if (swResp.statusCode != 200) {
+        throw Exception('SW007 API error (HTTP ${swResp.statusCode})');
+      }
+      final swBody = json.decode(swResp.body);
+      final swItems = swBody['items'] as List;
+      final sw007Raw = swItems
+          .map((e) => WeatherData.fromJson(e as Map<String, dynamic>))
+          .toList();
+      sw007Raw.sort((a, b) => a.timeStamp.compareTo(b.timeStamp));
+
+      // ── Build 15-min IMD timestamps ─────────────────────────────────────
+      // Bucket SW007 to the exact 15-min slots present in IMD data
+      final List<WeatherData> sw007Bucketed = [];
+      for (final imd in imdData) {
+        final bucket = DateTime(imd.timeStamp.year, imd.timeStamp.month,
+            imd.timeStamp.day, imd.timeStamp.hour, imd.timeStamp.minute, 0);
+        final bw = _bucketSW15(sw007Raw, bucket);
+        if (bw != null) sw007Bucketed.add(bw);
+      }
+
+      // ── Global time range ─────────────────────────────────────────────
+      DateTime? earliest;
+      DateTime? latest;
+      for (final d in imdData) {
+        if (earliest == null || d.timeStamp.isBefore(earliest))
+          earliest = d.timeStamp;
+        if (latest == null || d.timeStamp.isAfter(latest)) latest = d.timeStamp;
+      }
+
+      setState(() {
+        _imdData = imdData;
+        _sw007Raw = sw007Raw;
+        _sw007Bucketed = sw007Bucketed;
+        _loading = false;
+        _globalMin = earliest;
+        _totalMinutes = (earliest != null && latest != null)
+            ? latest.difference(earliest).inSeconds / 60.0
+            : 0.0;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  // ── CSV download ───────────────────────────────────────────────────────────
+
+  Future<void> _downloadCsv() async {
+    if (_imdData.isEmpty) {
+      _snack('No data — please fetch first');
+      return;
+    }
+    setState(() => _csvLoading = true);
+
+    try {
+      // Build aligned rows: use IMD timestamps as the index
+      final headers = [
+        'Timestamp',
+        'IMD_Temperature_C',
+        'IMD_Humidity_%',
+        'IMD_MSLP_hPa',
+        'IMD_WindSpeed_ms',
+        'IMD_WindDirection_deg',
+        'SW007_Temperature_C',
+        'SW007_Humidity_%',
+        'SW007_Pressure_hPa',
+        'SW007_WindSpeed_ms',
+        'SW007_WindDirection_deg',
+        'Diff_Temperature_C',
+        'Diff_Humidity_%',
+        'Diff_Pressure_hPa',
+        'Diff_WindSpeed_ms',
+        'Diff_WindDirection_deg',
+      ];
+
+      // Map SW007 bucketed by timestamp string for quick lookup
+      final swMap = {
+        for (final d in _sw007Bucketed)
+          DateFormat('yyyy-MM-dd HH:mm:ss').format(d.timeStamp): d
+      };
+
+      final lines = [headers.join(',')];
+
+      for (final imd in _imdData) {
+        final ts = DateFormat('yyyy-MM-dd HH:mm:ss').format(imd.timeStamp);
+        final sw = swMap[ts];
+
+        String fmt(double? v) => v?.toStringAsFixed(2) ?? '';
+        String diff(double? a, double? b) =>
+            (a != null && b != null) ? (a - b).abs().toStringAsFixed(2) : '';
+
+        lines.add([
+          ts,
+          fmt(imd.currTemp),
+          fmt(imd.relativeHumidity),
+          fmt(imd.mslp),
+          fmt(imd.windSpeed),
+          fmt(imd.windDirection),
+          fmt(sw?.currentTemperature),
+          fmt(sw?.currentHumidity),
+          fmt(sw?.atmPressure),
+          fmt(sw?.windSpeed),
+          fmt(sw?.windDirection),
+          diff(imd.currTemp, sw?.currentTemperature),
+          diff(imd.relativeHumidity, sw?.currentHumidity),
+          diff(imd.mslp, sw?.atmPressure),
+          diff(imd.windSpeed, sw?.windSpeed),
+          diff(imd.windDirection, sw?.windDirection),
+        ].join(','));
+      }
+
+      final csvContent = lines.join('\n');
+      final startStr = DateFormat('yyyyMMdd').format(_startDate);
+      final endStr = DateFormat('yyyyMMdd').format(_endDate);
+      final fileName = 'IMD_vs_SW007_${startStr}_$endStr.csv';
+      _triggerBrowserDownload(csvContent, fileName);
+      _snack('✓ Downloaded $fileName  (${_imdData.length} rows)');
+    } catch (e) {
+      _snack('CSV download failed: $e');
+    } finally {
+      setState(() => _csvLoading = false);
+    }
+  }
+
+  void _triggerBrowserDownload(String content, String fileName) {
+    final bytes = utf8.encode(content);
+    final blob = html.Blob([bytes], 'text/csv;charset=utf-8;');
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    final anchor = html.AnchorElement(href: url)
+      ..setAttribute('download', fileName)
+      ..style.display = 'none';
+    html.document.body!.append(anchor);
+    anchor.click();
+    anchor.remove();
+    Future.delayed(
+        const Duration(milliseconds: 200), () => html.Url.revokeObjectUrl(url));
+  }
+
+  // ── chart helpers ──────────────────────────────────────────────────────────
+
+  double _zv(IMDCompareParameter p) => _zoom[p] ?? 1.0;
+  double _pv(IMDCompareParameter p) => _pan[p] ?? 0.0;
+  double _bv(IMDCompareParameter p) => _base[p] ?? 1.0;
+
+  void _resetZoom(IMDCompareParameter p) => setState(() {
+        _zoom[p] = 1.0;
+        _pan[p] = 0.0;
+        _base[p] = 1.0;
+      });
+
+  double _imdVal(IMDData d, IMDCompareParameter p) {
+    switch (p) {
+      case IMDCompareParameter.temperature:
+        return d.currTemp;
+      case IMDCompareParameter.humidity:
+        return d.relativeHumidity;
+      case IMDCompareParameter.pressure:
+        return d.mslp;
+      case IMDCompareParameter.windSpeed:
+        return d.windSpeed;
+      case IMDCompareParameter.windDirection:
+        return d.windDirection;
+    }
+  }
+
+  double _swVal(WeatherData d, IMDCompareParameter p) {
+    switch (p) {
+      case IMDCompareParameter.temperature:
+        return d.currentTemperature;
+      case IMDCompareParameter.humidity:
+        return d.currentHumidity;
+      case IMDCompareParameter.pressure:
+        return d.atmPressure;
+      case IMDCompareParameter.windSpeed:
+        return d.windSpeed;
+      case IMDCompareParameter.windDirection:
+        return d.windDirection;
+    }
+  }
+
+  // ── statistics ─────────────────────────────────────────────────────────────
+
+  /// Returns {imd: {max,min,avg}, sw: {max,min,avg}, diff: {max,min,avg}}
+  Map<String, Map<String, double>> _calcStats(IMDCompareParameter p) {
+    if (_imdData.isEmpty) return {};
+
+    final imdVals = _imdData.map((d) => _imdVal(d, p)).toList();
+
+    // Build map of sw bucketed values keyed by rounded timestamp
+    final swMap = {for (final d in _sw007Bucketed) _roundTs(d.timeStamp): d};
+
+    final List<double> swVals = [];
+    final List<double> diffs = [];
+    for (final imd in _imdData) {
+      final sw = swMap[_roundTs(imd.timeStamp)];
+      if (sw != null) {
+        final sv = _swVal(sw, p);
+        swVals.add(sv);
+        diffs.add((_imdVal(imd, p) - sv).abs());
+      }
+    }
+
+    Map<String, double> _stats(List<double> v) {
+      if (v.isEmpty) return {};
+      return {
+        'max': v.reduce(max),
+        'min': v.reduce(min),
+        'avg': v.reduce((a, b) => a + b) / v.length,
+      };
+    }
+
+    return {
+      'imd': _stats(imdVals),
+      'sw': _stats(swVals),
+      'diff': _stats(diffs),
+    };
+  }
+
+  DateTime _roundTs(DateTime dt) =>
+      DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute);
+
+  // ── build ──────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Section Header ─────────────────────────────────────────────
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1565C0).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.compare, color: Color(0xFF1565C0)),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'IMD vs SW007 Comparison',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        'IMD Station: CGDAC000 (DAV School, Chandigarh)  ·  SW Device 7',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
+                // Legend chips
+                _legendChip('IMD', _imdColor),
+                const SizedBox(width: 8),
+                _legendChip('SW007', _swColor),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 16),
+
+            // ── Controls ───────────────────────────────────────────────────
+            Wrap(
+              spacing: 16,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                // Date pickers
+                _dateBtn('Start Date', _startDate, true),
+                _dateBtn('End Date', _endDate, false),
+                // Fetch button
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.sync),
+                  label: const Text('Fetch & Compare'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1565C0),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 14),
+                  ),
+                  onPressed: _loading ? null : _fetchData,
+                ),
+                // Download CSV
+                if (_imdData.isNotEmpty)
+                  _csvLoading
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : OutlinedButton.icon(
+                          icon: const Icon(Icons.download, size: 18),
+                          label: const Text('Download CSV'),
+                          onPressed: _downloadCsv,
+                        ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // ── Parameter Chips ────────────────────────────────────────────
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: IMDCompareParameter.values.map((p) {
+                final sel = _selectedParams.contains(p);
+                return FilterChip(
+                  label: Text(imdParamLabel(p)),
+                  selected: sel,
+                  selectedColor: const Color(0xFF1565C0).withOpacity(0.25),
+                  checkmarkColor: const Color(0xFF1565C0),
+                  onSelected: (v) {
+                    setState(() {
+                      if (v) {
+                        _selectedParams.add(p);
+                      } else {
+                        if (_selectedParams.length > 1) {
+                          _selectedParams.remove(p);
+                        } else {
+                          _snack('At least one parameter must be selected');
+                        }
+                      }
+                    });
+                  },
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+
+            // ── Loading / Error ────────────────────────────────────────────
+            if (_loading)
+              const Center(
+                  child: Padding(
+                padding: EdgeInsets.all(24),
+                child: CircularProgressIndicator(),
+              )),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(_error!,
+                    style: const TextStyle(color: Colors.red, fontSize: 13)),
+              ),
+
+            // ── Match info ─────────────────────────────────────────────────
+            if (!_loading && _imdData.isNotEmpty) ...[
+              _buildMatchInfo(),
+              const SizedBox(height: 16),
+
+              // ── Charts per parameter ───────────────────────────────────
+              ..._selectedParams.map((p) => Column(
+                    children: [
+                      _buildChartCard(p),
+                      const SizedBox(height: 16),
+                    ],
+                  )),
+
+              // ── Statistics table ───────────────────────────────────────
+              _buildStatsSection(),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── small helpers ──────────────────────────────────────────────────────────
+
+  Widget _legendChip(String label, Color color) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.4)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+                width: 10,
+                height: 10,
+                decoration:
+                    BoxDecoration(color: color, shape: BoxShape.circle)),
+            const SizedBox(width: 6),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+          ],
+        ),
+      );
+
+  Widget _dateBtn(String label, DateTime dt, bool isStart) => OutlinedButton(
+        onPressed: () => _pickDate(isStart),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label,
+                style: const TextStyle(fontSize: 11, color: Colors.grey)),
+            const SizedBox(height: 2),
+            Text(DateFormat('dd-MM-yyyy').format(dt),
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          ],
+        ),
+      );
+
+  Widget _buildMatchInfo() {
+    final swMap = {for (final d in _sw007Bucketed) _roundTs(d.timeStamp): d};
+    int matched = 0;
+    for (final imd in _imdData) {
+      if (swMap.containsKey(_roundTs(imd.timeStamp))) matched++;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.green.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.green.shade200),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle, color: Colors.green, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'IMD records: ${_imdData.length}  ·  SW007 15-min buckets: ${_sw007Bucketed.length}  ·  Matched timestamps: $matched  '
+              '(SW007 raw 5-min points: ${_sw007Raw.length})',
+              style: const TextStyle(fontSize: 12, color: Colors.green),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── chart card ─────────────────────────────────────────────────────────────
+
+  Widget _buildChartCard(IMDCompareParameter p) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2))
+        ],
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(imdParamLabel(p),
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
+                if (_zv(p) > 1.0)
+                  TextButton.icon(
+                    icon: const Icon(Icons.zoom_out_map, size: 16),
+                    label: const Text('Reset', style: TextStyle(fontSize: 12)),
+                    onPressed: () => _resetZoom(p),
+                  ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 320,
+            child: ClipRect(child: _buildChart(p)),
+          ),
+          // legend
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _dotLegend(
+                    'IMD (${_imdData.isNotEmpty ? _imdData.first.station : ""})',
+                    _imdColor),
+                const SizedBox(width: 24),
+                _dotLegend('SW Device 7 (15-min avg)', _swColor),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _dotLegend(String label, Color color) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+              width: 14,
+              height: 14,
+              decoration: BoxDecoration(
+                  color: color, borderRadius: BorderRadius.circular(3))),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(fontSize: 11)),
+        ],
+      );
+
+  Widget _buildChart(IMDCompareParameter p) {
+    if (_imdData.isEmpty || _globalMin == null) {
+      return const Center(child: Text('No data'));
+    }
+    final globalMin = _globalMin!;
+    final totalMin = _totalMinutes <= 0 ? 1.0 : _totalMinutes;
+
+    final zoomLevel = _zv(p);
+    final panOffset = _pv(p);
+    final visMin = totalMin / zoomLevel;
+    final maxPan = max(0.0, totalMin - visMin);
+    final cPan = panOffset.clamp(0.0, maxPan).toDouble();
+    final minX = cPan;
+    final maxX = min(cPan + visMin, totalMin);
+
+    // ── IMD spots ──────────────────────────────────────────────────────────
+    final imdSpots = _imdData.map((d) {
+      final elapsed = d.timeStamp.difference(globalMin).inSeconds / 60.0;
+      return FlSpot(elapsed, _imdVal(d, p));
+    }).toList();
+
+    // ── SW007 bucketed spots ───────────────────────────────────────────────
+    final swSpots = _sw007Bucketed.map((d) {
+      final elapsed = d.timeStamp.difference(globalMin).inSeconds / 60.0;
+      return FlSpot(elapsed, _swVal(d, p));
+    }).toList();
+
+    // ── Y range ───────────────────────────────────────────────────────────
+    final allY = [
+      ...imdSpots.map((s) => s.y),
+      ...swSpots.map((s) => s.y),
+    ];
+    double yMin = allY.isEmpty ? 0 : allY.reduce(min);
+    double yMax = allY.isEmpty ? 1 : allY.reduce(max);
+    if (yMin == yMax) {
+      yMin -= 1;
+      yMax += 1;
+    } else {
+      final pad = (yMax - yMin) * 0.05;
+      yMin -= pad;
+      yMax += pad;
+    }
+
+    final lineBars = [
+      if (imdSpots.isNotEmpty)
+        LineChartBarData(
+          spots: imdSpots,
+          isCurved: true,
+          color: _imdColor,
+          barWidth: 2.5,
+          isStrokeCapRound: true,
+          dotData: FlDotData(show: zoomLevel > 3),
+          dashArray: null,
+        ),
+      if (swSpots.isNotEmpty)
+        LineChartBarData(
+          spots: swSpots,
+          isCurved: true,
+          color: _swColor,
+          barWidth: 2.5,
+          isStrokeCapRound: true,
+          dotData: FlDotData(show: zoomLevel > 3),
+          dashArray: [6, 3],
+        ),
+    ];
+
+    return ClipRect(
+      child: RawGestureDetector(
+        gestures: {
+          _PanZoomGestureRecognizer:
+              GestureRecognizerFactoryWithHandlers<_PanZoomGestureRecognizer>(
+            () => _PanZoomGestureRecognizer(),
+            (_PanZoomGestureRecognizer inst) {
+              inst
+                ..onStart = (_) {
+                  _base[p] = _zv(p);
+                }
+                ..onUpdate = (details) {
+                  if (details.scale != 1.0) {
+                    setState(() => _zoom[p] =
+                        (_bv(p) * details.scale).clamp(_minZoom, _maxZoom));
+                  }
+                  if (details.focalPointDelta.dx.abs() > 0.1) {
+                    final sens = totalMin / (400 * _zv(p));
+                    final vis = totalMin / _zv(p);
+                    setState(() => _pan[p] =
+                        (_pv(p) - details.focalPointDelta.dx * sens)
+                            .clamp(0.0, max(0.0, totalMin - vis))
+                            .toDouble());
+                  }
+                }
+                ..onEnd = (_) {
+                  _base[p] = _zv(p);
+                };
+            },
+          ),
+        },
+        child: Listener(
+          onPointerSignal: (signal) {
+            if (signal is PointerScrollEvent &&
+                HardwareKeyboard.instance.isShiftPressed) {
+              GestureBinding.instance.pointerSignalResolver.register(signal,
+                  (event) {
+                if (event is PointerScrollEvent) {
+                  final d = event.scrollDelta.dy;
+                  setState(() {
+                    _zoom[p] = (d < 0 ? _zv(p) * 1.1 : _zv(p) / 1.1)
+                        .clamp(_minZoom, _maxZoom);
+                  });
+                }
+              });
+            }
+          },
+          child: LineChart(
+            LineChartData(
+              clipData: const FlClipData.all(),
+              minX: minX,
+              maxX: maxX > minX ? maxX : minX + 1,
+              minY: yMin,
+              maxY: yMax,
+              gridData: FlGridData(
+                show: true,
+                getDrawingHorizontalLine: (_) =>
+                    FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+                getDrawingVerticalLine: (_) =>
+                    FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+              ),
+              borderData: FlBorderData(
+                  show: true, border: Border.all(color: Colors.grey.shade300)),
+              titlesData: FlTitlesData(
+                topTitles:
+                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                leftTitles: AxisTitles(
+                  axisNameWidget: Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Text(imdParamLabel(p),
+                        style: const TextStyle(
+                            fontSize: 9, fontWeight: FontWeight.bold)),
+                  ),
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 48,
+                    getTitlesWidget: (v, _) => Text(v.toStringAsFixed(1),
+                        style: const TextStyle(fontSize: 9)),
+                  ),
+                ),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 30,
+                    interval: max(1.0, (visMin / 8).ceilToDouble()),
+                    getTitlesWidget: (v, _) {
+                      final t =
+                          globalMin.add(Duration(seconds: (v * 60).round()));
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(DateFormat('HH:mm').format(t),
+                            style: const TextStyle(fontSize: 9)),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              lineBarsData: lineBars,
+              lineTouchData: LineTouchData(
+                touchTooltipData: LineTouchTooltipData(
+                  fitInsideHorizontally: true,
+                  fitInsideVertically: true,
+                  getTooltipItems: (spots) => spots.map((spot) {
+                    final isImd = spot.barIndex == 0;
+                    final color = isImd ? _imdColor : _swColor;
+                    final label = isImd ? 'IMD' : 'SW007';
+
+                    // Find closest actual point
+                    double val = spot.y;
+                    String tsStr = '';
+                    if (isImd && _imdData.isNotEmpty) {
+                      IMDData? cl;
+                      double md = double.infinity;
+                      for (final d in _imdData) {
+                        final e =
+                            d.timeStamp.difference(globalMin).inSeconds / 60.0;
+                        if ((e - spot.x).abs() < md) {
+                          md = (e - spot.x).abs();
+                          cl = d;
+                        }
+                      }
+                      if (cl != null) {
+                        val = _imdVal(cl, p);
+                        tsStr =
+                            DateFormat('dd-MM-yyyy HH:mm').format(cl.timeStamp);
+                      }
+                    } else if (!isImd && _sw007Bucketed.isNotEmpty) {
+                      WeatherData? cl;
+                      double md = double.infinity;
+                      for (final d in _sw007Bucketed) {
+                        final e =
+                            d.timeStamp.difference(globalMin).inSeconds / 60.0;
+                        if ((e - spot.x).abs() < md) {
+                          md = (e - spot.x).abs();
+                          cl = d;
+                        }
+                      }
+                      if (cl != null) {
+                        val = _swVal(cl, p);
+                        tsStr =
+                            DateFormat('dd-MM-yyyy HH:mm').format(cl.timeStamp);
+                      }
+                    }
+
+                    String fmt(double v) {
+                      if (p == IMDCompareParameter.windDirection) {
+                        return '${v.toStringAsFixed(1)}° '
+                            '(${degreesToDirection(v)}) ${getWindArrow(v)}';
+                      }
+                      return '${v.toStringAsFixed(2)} ${imdParamUnit(p)}';
+                    }
+
+                    return LineTooltipItem(
+                      '$tsStr\n$label: ${fmt(val)}',
+                      TextStyle(
+                          color: color,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── statistics section ─────────────────────────────────────────────────────
+
+  Widget _buildStatsSection() {
+    return Card(
+      color: Colors.grey.shade50,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Statistics (at matched 15-min timestamps)',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ..._selectedParams.map((p) {
+              final stats = _calcStats(p);
+              if (stats.isEmpty) return const SizedBox.shrink();
+              final unit = imdParamUnit(p);
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1565C0).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(imdParamLabel(p),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1565C0))),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                          child: _statBlock(
+                              'IMD', stats['imd'] ?? {}, unit, _imdColor)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: _statBlock(
+                              'SW007', stats['sw'] ?? {}, unit, _swColor)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: _statBlock('|Difference|', stats['diff'] ?? {},
+                              unit, Colors.purple)),
+                    ],
+                  ),
+                  if (p != _selectedParams.last) ...[
+                    const SizedBox(height: 16),
+                    const Divider(),
+                    const SizedBox(height: 16),
+                  ],
+                ],
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _statBlock(
+      String title, Map<String, double> stats, String unit, Color color) {
+    if (stats.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Text('$title\nNo data',
+            style: TextStyle(fontSize: 12, color: color),
+            textAlign: TextAlign.center),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style: TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.bold, color: color)),
+          const SizedBox(height: 8),
+          _statRow('Max', stats['max'], unit, color),
+          _statRow('Avg', stats['avg'], unit, color),
+          _statRow('Min', stats['min'], unit, color),
+        ],
+      ),
+    );
+  }
+
+  Widget _statRow(String label, double? val, String unit, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          Text(
+            val != null ? '${val.toStringAsFixed(2)} $unit' : '—',
+            style: TextStyle(
+                fontSize: 11, fontWeight: FontWeight.w600, color: color),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  ORIGINAL PAGE
+// ════════════════════════════════════════════════════════════
+
 class SensorComparisonPage extends StatefulWidget {
   const SensorComparisonPage({Key? key}) : super(key: key);
 
@@ -462,8 +1551,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
   DateTime? _globalMinTime;
   double _totalMinutes = 0.0;
 
-  // ─── Date Picker ─────────────────────────────────────────────────────────────
-
   Future<void> pickDate(bool isStart) async {
     final picked = await showDatePicker(
       context: context,
@@ -480,8 +1567,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
       });
     }
   }
-
-  // ─── Sensor Management ───────────────────────────────────────────────────────
 
   void addSensor() {
     final deviceId = int.tryParse(newDeviceController.text);
@@ -515,8 +1600,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
 
   void _snack(String msg) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-
-  // ─── Fetch chart data ─────────────────────────────────────────────────────────
 
   Future<void> fetchComparisonData() async {
     if (selectedSensors.isEmpty) {
@@ -599,8 +1682,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
   }
 
   bool get anyChartZoomed => _zoomLevel.values.any((z) => z > 1.0);
-
-  // ─── CSV Download ──────────────────────────────────────────────────────────────
 
   Future<void> downloadCsv() async {
     if (devicesData.isEmpty) {
@@ -722,8 +1803,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     );
   }
 
-  // ─── Statistics ───────────────────────────────────────────────────────────────
-
   Map<WeatherParameter, Map<String, Map<String, double>>>
       calculateStatistics() {
     if (matchedDataPoints.isEmpty) return {};
@@ -793,8 +1872,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     }
     return allDiffStats;
   }
-
-  // ─── Build ────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -878,13 +1955,33 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
               ),
               _buildStatisticsCard(),
             ],
+
+            // ════════════════════════════════════════════════
+            //  IMD vs SW007 SECTION — always visible
+            // ════════════════════════════════════════════════
+            const SizedBox(height: 32),
+            const Divider(thickness: 2),
+            const SizedBox(height: 8),
+            const Row(
+              children: [
+                Icon(Icons.cloud_queue, color: Color(0xFF1565C0)),
+                SizedBox(width: 8),
+                Text(
+                  'IMD Reference Station Comparison',
+                  style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1565C0)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const IMDComparisonSection(),
           ],
         ),
       ),
     );
   }
-
-  // ─── Download Banner ──────────────────────────────────────────────────────────
 
   Widget _buildDownloadBanner() {
     return Container(
@@ -940,8 +2037,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
       ),
     );
   }
-
-  // ─── Sensor Selector Card ─────────────────────────────────────────────────────
 
   Widget _buildSensorSelector() {
     return Card(
@@ -1063,8 +2158,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
         decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       );
 
-  // ─── Parameter & Date Selector ────────────────────────────────────────────────
-
   Widget _buildParameterAndDateSelector() {
     return Card(
       child: Padding(
@@ -1133,8 +2226,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
     );
   }
 
-  // ─── Legend ───────────────────────────────────────────────────────────────────
-
   Widget _buildLegend() {
     return Wrap(
       alignment: WrapAlignment.center,
@@ -1161,8 +2252,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
       ],
     );
   }
-
-  // ─── Chart Card ───────────────────────────────────────────────────────────────
 
   Widget _buildChartCard(WeatherParameter parameter) {
     return Container(
@@ -1216,8 +2305,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
       ),
     );
   }
-
-  // ─── Chart ────────────────────────────────────────────────────────────────────
 
   Widget _buildChart(WeatherParameter parameter) {
     if (devicesData.isEmpty || _globalMinTime == null) {
@@ -1441,8 +2528,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
       ),
     );
   }
-
-  // ─── Statistics Card ──────────────────────────────────────────────────────────
 
   Widget _buildStatisticsCard() {
     final allStats = calculateStatistics();
