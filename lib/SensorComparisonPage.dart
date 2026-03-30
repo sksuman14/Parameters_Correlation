@@ -2333,12 +2333,15 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
 
     for (final device in devicesData) {
       final spots = <FlSpot>[];
-      for (final d in device.data) {
-        final elapsed = d.timeStamp.difference(globalMin).inSeconds / 60.0;
-        final yVal = getParameterValue(d, parameter);
-        spots.add(FlSpot(elapsed, yVal));
-        if (yVal < allYMin) allYMin = yVal;
-        if (yVal > allYMax) allYMax = yVal;
+      for (final mp in matchedDataPoints) {
+        final d = mp.deviceData[device.key];
+        if (d != null) {
+          final elapsed = d.timeStamp.difference(globalMin).inSeconds / 60.0;
+          final yVal = getParameterValue(d, parameter);
+          spots.add(FlSpot(elapsed, yVal));
+          if (yVal < allYMin) allYMin = yVal;
+          if (yVal > allYMax) allYMax = yVal;
+        }
       }
       if (spots.isNotEmpty) {
         lineBars.add(LineChartBarData(
