@@ -1312,64 +1312,85 @@ class _IMDComparisonSectionState extends State<IMDComparisonSection> {
                 touchTooltipData: LineTouchTooltipData(
                   fitInsideHorizontally: true,
                   fitInsideVertically: true,
-                  getTooltipItems: (spots) => spots.map((spot) {
-                    final isImd = spot.barIndex == 0;
-                    final color = isImd ? _imdColor : _swColor;
-                    final label = isImd ? 'IMD' : 'SW007';
+                  getTooltipItems: (spots) {
+                    return spots.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final spot = entry.value;
+                      final isImd = spot.barIndex == 0;
+                      final color = isImd ? _imdColor : _swColor;
+                      final label = isImd ? 'IMD' : 'SW007';
 
-                    // Find closest actual point
-                    double val = spot.y;
-                    String tsStr = '';
-                    if (isImd && _imdData.isNotEmpty) {
-                      IMDData? cl;
-                      double md = double.infinity;
-                      for (final d in _imdData) {
-                        final e =
-                            d.timeStamp.difference(globalMin).inSeconds / 60.0;
-                        if ((e - spot.x).abs() < md) {
-                          md = (e - spot.x).abs();
-                          cl = d;
+                      // Find closest actual point
+                      double val = spot.y;
+                      String tsStr = '';
+                      if (isImd && _imdData.isNotEmpty) {
+                        IMDData? cl;
+                        double md = double.infinity;
+                        for (final d in _imdData) {
+                          final e =
+                              d.timeStamp.difference(globalMin).inSeconds /
+                                  60.0;
+                          if ((e - spot.x).abs() < md) {
+                            md = (e - spot.x).abs();
+                            cl = d;
+                          }
+                        }
+                        if (cl != null) {
+                          val = _imdVal(cl, p);
+                          tsStr = DateFormat('dd-MM-yyyy HH:mm')
+                              .format(cl.timeStamp);
+                        }
+                      } else if (!isImd && _sw007Bucketed.isNotEmpty) {
+                        WeatherData? cl;
+                        double md = double.infinity;
+                        for (final d in _sw007Bucketed) {
+                          final e =
+                              d.timeStamp.difference(globalMin).inSeconds /
+                                  60.0;
+                          if ((e - spot.x).abs() < md) {
+                            md = (e - spot.x).abs();
+                            cl = d;
+                          }
+                        }
+                        if (cl != null) {
+                          val = _swVal(cl, p);
+                          tsStr = DateFormat('dd-MM-yyyy HH:mm')
+                              .format(cl.timeStamp);
                         }
                       }
-                      if (cl != null) {
-                        val = _imdVal(cl, p);
-                        tsStr =
-                            DateFormat('dd-MM-yyyy HH:mm').format(cl.timeStamp);
-                      }
-                    } else if (!isImd && _sw007Bucketed.isNotEmpty) {
-                      WeatherData? cl;
-                      double md = double.infinity;
-                      for (final d in _sw007Bucketed) {
-                        final e =
-                            d.timeStamp.difference(globalMin).inSeconds / 60.0;
-                        if ((e - spot.x).abs() < md) {
-                          md = (e - spot.x).abs();
-                          cl = d;
+
+                      String fmt(double v) {
+                        if (p == IMDCompareParameter.windDirection) {
+                          return '${v.toStringAsFixed(1)}° '
+                              '(${degreesToDirection(v)}) ${getWindArrow(v)}';
                         }
+                        return '${v.toStringAsFixed(2)} ${imdParamUnit(p)}';
                       }
-                      if (cl != null) {
-                        val = _swVal(cl, p);
-                        tsStr =
-                            DateFormat('dd-MM-yyyy HH:mm').format(cl.timeStamp);
-                      }
-                    }
 
-                    String fmt(double v) {
-                      if (p == IMDCompareParameter.windDirection) {
-                        return '${v.toStringAsFixed(1)}° '
-                            '(${degreesToDirection(v)}) ${getWindArrow(v)}';
-                      }
-                      return '${v.toStringAsFixed(2)} ${imdParamUnit(p)}';
-                    }
+                      String diffText = '';
+                      if (spots.length == 2 && index == spots.length - 1) {
+                        final val1 = spots[0].y;
+                        final val2 = spots[1].y;
+                        final diff = (val1 - val2).abs();
+                        String diffFmt(double v) {
+                          if (p == IMDCompareParameter.windDirection) {
+                            return '${v.toStringAsFixed(1)}°';
+                          }
+                          return '${v.toStringAsFixed(2)} ${imdParamUnit(p)}';
+                        }
 
-                    return LineTooltipItem(
-                      '$tsStr\n$label: ${fmt(val)}',
-                      TextStyle(
-                          color: color,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11),
-                    );
-                  }).toList(),
+                        diffText = '\nDifference: ${diffFmt(diff)}';
+                      }
+
+                      return LineTooltipItem(
+                        '$tsStr\n$label: ${fmt(val)}$diffText',
+                        TextStyle(
+                            color: color,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11),
+                      );
+                    }).toList();
+                  },
                 ),
               ),
             ),
@@ -2486,7 +2507,9 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
                   fitInsideHorizontally: true,
                   fitInsideVertically: true,
                   getTooltipItems: (touchedSpots) {
-                    return touchedSpots.map((spot) {
+                    return touchedSpots.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final spot = entry.value;
                       final deviceIndex = spot.barIndex;
                       if (deviceIndex >= devicesData.length) return null;
                       final device = devicesData[deviceIndex];
@@ -2513,8 +2536,25 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
                         return v.toStringAsFixed(1);
                       }
 
+                      String diffText = '';
+                      if (devicesData.length == 2 &&
+                          touchedSpots.length == 2 &&
+                          index == touchedSpots.length - 1) {
+                        final val1 = touchedSpots[0].y;
+                        final val2 = touchedSpots[1].y;
+                        final diff = (val1 - val2).abs();
+                        String diffFmt(double v) {
+                          if (parameter == WeatherParameter.windDirection) {
+                            return '${v.toStringAsFixed(1)}°';
+                          }
+                          return v.toStringAsFixed(1);
+                        }
+
+                        diffText = '\nDifference: ${diffFmt(diff)}';
+                      }
+
                       return LineTooltipItem(
-                        '$ts\n${device.label}: ${fmt(value)}',
+                        '$ts\n${device.label}: ${fmt(value)}$diffText',
                         TextStyle(
                           color: device.color,
                           fontWeight: FontWeight.bold,
