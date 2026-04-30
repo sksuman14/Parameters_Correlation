@@ -1383,11 +1383,23 @@ class _IMDComparisonSectionState extends State<IMDComparisonSection> {
                       }
 
                       return LineTooltipItem(
-                        '$tsStr\n$label: ${fmt(val)}$diffText',
+                        '$tsStr\n$label: ${fmt(val)}',
                         TextStyle(
                             color: color,
                             fontWeight: FontWeight.bold,
                             fontSize: 11),
+                        children: diffText.isEmpty
+                            ? null
+                            : [
+                                TextSpan(
+                                  text: diffText,
+                                  style: const TextStyle(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
                       );
                     }).toList();
                   },
@@ -2554,12 +2566,24 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
                       }
 
                       return LineTooltipItem(
-                        '$ts\n${device.label}: ${fmt(value)}$diffText',
+                        '$ts\n${device.label}: ${fmt(value)}',
                         TextStyle(
                           color: device.color,
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                         ),
+                        children: diffText.isEmpty
+                            ? null
+                            : [
+                                TextSpan(
+                                  text: diffText,
+                                  style: const TextStyle(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
                       );
                     }).toList();
                   },
