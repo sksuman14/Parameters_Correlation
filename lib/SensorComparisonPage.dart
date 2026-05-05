@@ -1310,6 +1310,10 @@ class _IMDComparisonSectionState extends State<IMDComparisonSection> {
               lineBarsData: lineBars,
               lineTouchData: LineTouchData(
                 touchTooltipData: LineTouchTooltipData(
+                  getTooltipColor: (touchedSpot) =>
+                      Colors.white.withOpacity(0.8),
+                  tooltipBorder:
+                      BorderSide(color: Colors.grey.withOpacity(0.2), width: 1),
                   fitInsideHorizontally: true,
                   fitInsideVertically: true,
                   getTooltipItems: (spots) {
@@ -2516,6 +2520,10 @@ class _SensorComparisonPageState extends State<SensorComparisonPage> {
               lineBarsData: lineBars,
               lineTouchData: LineTouchData(
                 touchTooltipData: LineTouchTooltipData(
+                  getTooltipColor: (touchedSpot) =>
+                      Colors.white.withOpacity(0.8),
+                  tooltipBorder:
+                      BorderSide(color: Colors.grey.withOpacity(0.2), width: 1),
                   fitInsideHorizontally: true,
                   fitInsideVertically: true,
                   getTooltipItems: (touchedSpots) {
