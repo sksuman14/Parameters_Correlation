@@ -341,23 +341,23 @@ class TimestampMatcher {
 }
 
 // ════════════════════════════════════════════════════════════
-//  COLOR PALETTE
+//  COLOR PALETTE — Precision Instrument Dark Theme
 // ════════════════════════════════════════════════════════════
 
 class ColorPalette {
   static const List<Color> chartColors = [
-    Color(0xFF2563EB),
-    Color(0xFFEA580C),
-    Color(0xFF16A34A),
-    Color(0xFFDC2626),
-    Color(0xFF9333EA),
-    Color(0xFF0D9488),
-    Color(0xFFDB2777),
-    Color(0xFF4F46E5),
-    Color(0xFFD97706),
-    Color(0xFF0891B2),
-    Color(0xFF65A30D),
-    Color(0xFFEA580C),
+    Color(0xFF00D4B8), // Teal/Cyan
+    Color(0xFFFFB020), // Amber
+    Color(0xFF6C8EEF), // Periwinkle blue
+    Color(0xFFFF6B6B), // Coral red
+    Color(0xFF98D46B), // Lime green
+    Color(0xFFE07FFF), // Violet
+    Color(0xFF4ECDC4), // Turquoise
+    Color(0xFFFFE66D), // Yellow
+    Color(0xFFFF8C42), // Orange
+    Color(0xFF00B4D8), // Sky blue
+    Color(0xFFA8DADC), // Pale teal
+    Color(0xFFFF4D6D), // Pink-red
   ];
   static Color getColor(int index) => chartColors[index % chartColors.length];
 }
@@ -515,58 +515,96 @@ class _PanZoomGestureRecognizer extends ScaleGestureRecognizer {
 }
 
 // ════════════════════════════════════════════════════════════
-//  DESIGN TOKENS
+//  DESIGN TOKENS — Dark Precision Instrument Theme
 // ════════════════════════════════════════════════════════════
 
-const _kBg = Color(0xFFF5F6FA);
-const _kCardBg = Colors.white;
-const _kPrimary = Color(0xFF4F46E5);
-const _kPrimaryLight = Color(0xFFEEF2FF);
-const _kBorder = Color(0xFFE5E7EB);
-const _kTextPrimary = Color(0xFF111827);
-const _kTextSecondary = Color(0xFF6B7280);
-const _kTextTertiary = Color(0xFF9CA3AF);
-const _kImdColor = Color(0xFF1565C0);
+// Core palette
+const _kBg = Color(0xFF0D1117); // Near-black base
+const _kSurface = Color(0xFF161B22); // Card surface
+const _kSurfaceElevated = Color(0xFF1C2333); // Elevated cards
+const _kBorder = Color(0xFF30363D); // Subtle borders
+const _kBorderAccent = Color(0xFF3D4A5C); // Slightly visible borders
 
-const _kRadius = BorderRadius.all(Radius.circular(12));
-const _kRadiusSm = BorderRadius.all(Radius.circular(8));
+// Accent colors
+const _kPrimary = Color(0xFF00D4B8); // Teal primary
+const _kPrimaryDim = Color(0xFF00D4B820); // Teal with alpha
+const _kImdColor = Color(0xFF6C8EEF); // Periwinkle for IMD
+const _kImdDim = Color(0xFF6C8EEF20);
+
+// Text
+const _kTextPrimary = Color(0xFFE6EDF3);
+const _kTextSecondary = Color(0xFF8B949E);
+const _kTextTertiary = Color(0xFF484F58);
+const _kTextMono = Color(0xFF00D4B8); // Monospaced numeric color
+
+// Status colors
+const _kRed = Color(0xFFFF6B6B);
+const _kGreen = Color(0xFF3FB950);
+const _kAmber = Color(0xFFFFB020);
+const _kPurple = Color(0xFFE07FFF);
+
+const _kRadius = BorderRadius.all(Radius.circular(10));
+const _kRadiusSm = BorderRadius.all(Radius.circular(7));
+const _kRadiusXs = BorderRadius.all(Radius.circular(4));
 
 // ════════════════════════════════════════════════════════════
-//  SHARED WIDGETS
+//  SHARED WIDGETS — Redesigned
 // ════════════════════════════════════════════════════════════
 
+/// Overline label — small uppercase tracking
 class _SectionLabel extends StatelessWidget {
   final String text;
   const _SectionLabel(this.text);
 
   @override
-  Widget build(BuildContext context) => Text(
-        text.toUpperCase(),
-        style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-            color: _kTextTertiary,
-            letterSpacing: 0.8),
+  Widget build(BuildContext context) => Row(
+        children: [
+          Container(
+            width: 3,
+            height: 11,
+            decoration: BoxDecoration(
+              color: _kPrimary,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 7),
+          Text(
+            text.toUpperCase(),
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: _kTextSecondary,
+              letterSpacing: 1.2,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
       );
 }
 
+/// Base card with dark surface
 class _AppCard extends StatelessWidget {
   final Widget child;
   final EdgeInsets? padding;
-  const _AppCard({required this.child, this.padding});
+  final Color? borderColor;
+  const _AppCard({required this.child, this.padding, this.borderColor});
 
   @override
   Widget build(BuildContext context) => Container(
         decoration: BoxDecoration(
-          color: _kCardBg,
+          color: _kSurface,
           borderRadius: _kRadius,
-          border: Border.all(color: _kBorder, width: 0.5),
+          border: Border.all(
+            color: borderColor ?? _kBorder,
+            width: 1,
+          ),
         ),
         padding: padding ?? const EdgeInsets.all(20),
         child: child,
       );
 }
 
+/// Metric display card — stat number
 class _MetricCard extends StatelessWidget {
   final String label;
   final String value;
@@ -576,26 +614,42 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.07),
+          color: color.withOpacity(0.06),
           borderRadius: _kRadiusSm,
-          border: Border.all(color: color.withOpacity(0.2), width: 0.5),
+          border: Border.all(color: color.withOpacity(0.18), width: 1),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label,
-                style: const TextStyle(fontSize: 10, color: _kTextTertiary)),
-            const SizedBox(height: 4),
-            Text(value,
-                style: TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w600, color: color)),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 9,
+                color: _kTextTertiary,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.8,
+                fontFamily: 'monospace',
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: color,
+                fontFamily: 'monospace',
+                letterSpacing: -0.3,
+              ),
+            ),
           ],
         ),
       );
 }
 
+/// Sensor chip — pill with type badge
 class _SensorChip extends StatelessWidget {
   final SensorEntry sensor;
   final Color color;
@@ -605,33 +659,54 @@ class _SensorChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.only(left: 4, right: 8, top: 4, bottom: 4),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withOpacity(0.3)),
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: color.withOpacity(0.35), width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
               decoration: BoxDecoration(
-                  color: color, borderRadius: BorderRadius.circular(4)),
-              child: Text(sensorTypeLabel(sensor.sensorType),
-                  style: const TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white)),
+                color: color,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text(
+                sensorTypeLabel(sensor.sensorType),
+                style: const TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0D1117),
+                  letterSpacing: 0.5,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
+            const SizedBox(width: 7),
+            Text(
+              sensor.label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: color,
+                fontFamily: 'monospace',
+              ),
             ),
             const SizedBox(width: 6),
-            Text(sensor.label,
-                style: TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w500, color: color)),
-            const SizedBox(width: 4),
             GestureDetector(
               onTap: onRemove,
-              child: Icon(Icons.close, size: 14, color: color.withOpacity(0.7)),
+              child: Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.close, size: 10, color: color),
+              ),
             ),
           ],
         ),
@@ -642,39 +717,68 @@ Widget _legendDot(String label, Color color) => Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          width: 20,
+          height: 2,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(1),
+          ),
+        ),
         const SizedBox(width: 5),
-        Text(label,
-            style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: _kTextSecondary)),
+        Container(
+          width: 5,
+          height: 5,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: _kTextSecondary,
+            fontFamily: 'monospace',
+          ),
+        ),
       ],
     );
 
 Widget _sectionDivider(String label) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14),
+      padding: const EdgeInsets.symmetric(vertical: 16),
       child: Row(
         children: [
-          const Expanded(child: Divider(color: _kBorder, thickness: 0.5)),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Text(label,
-                style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: _kTextTertiary,
-                    letterSpacing: 0.4)),
+          Container(
+            width: 4,
+            height: 4,
+            decoration: const BoxDecoration(
+              color: _kPrimary,
+              shape: BoxShape.circle,
+            ),
           ),
-          const Expanded(child: Divider(color: _kBorder, thickness: 0.5)),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: _kTextSecondary,
+              letterSpacing: 0.5,
+              fontFamily: 'monospace',
+            ),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Divider(color: _kBorder, thickness: 1),
+          ),
         ],
       ),
     );
 
 // ════════════════════════════════════════════════════════════
-//  SENSOR SELECTOR WIDGET (reusable)
+//  SENSOR SELECTOR WIDGET
 // ════════════════════════════════════════════════════════════
 
 class _SensorSelectorWidget extends StatefulWidget {
@@ -709,8 +813,7 @@ class _SensorSelectorWidgetState extends State<_SensorSelectorWidget> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _SectionLabel('Sensors'),
-        const SizedBox(height: 10),
-        // Existing sensor chips
+        const SizedBox(height: 12),
         if (widget.sensors.isNotEmpty)
           Wrap(
             spacing: 8,
@@ -726,7 +829,6 @@ class _SensorSelectorWidgetState extends State<_SensorSelectorWidget> {
                 .toList(),
           ),
         const SizedBox(height: 12),
-        // Add row
         Row(
           children: [
             // Type toggle
@@ -734,6 +836,7 @@ class _SensorSelectorWidgetState extends State<_SensorSelectorWidget> {
               decoration: BoxDecoration(
                 border: Border.all(color: _kBorder),
                 borderRadius: _kRadiusSm,
+                color: _kBg,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -744,7 +847,7 @@ class _SensorSelectorWidgetState extends State<_SensorSelectorWidget> {
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
+                          horizontal: 13, vertical: 8),
                       decoration: BoxDecoration(
                         color: selected ? _kPrimary : Colors.transparent,
                         borderRadius: _kRadiusSm,
@@ -752,9 +855,12 @@ class _SensorSelectorWidgetState extends State<_SensorSelectorWidget> {
                       child: Text(
                         sensorTypeLabel(type),
                         style: TextStyle(
-                          color: selected ? Colors.white : _kTextSecondary,
-                          fontWeight: FontWeight.w600,
+                          color: selected
+                              ? const Color(0xFF0D1117)
+                              : _kTextSecondary,
+                          fontWeight: FontWeight.w700,
                           fontSize: 12,
+                          fontFamily: 'monospace',
                         ),
                       ),
                     ),
@@ -767,36 +873,60 @@ class _SensorSelectorWidgetState extends State<_SensorSelectorWidget> {
               child: TextField(
                 controller: _controller,
                 keyboardType: TextInputType.number,
-                style: const TextStyle(fontSize: 13),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: _kTextPrimary,
+                  fontFamily: 'monospace',
+                ),
                 decoration: InputDecoration(
                   hintText: 'Device ID',
-                  hintStyle:
-                      const TextStyle(fontSize: 13, color: _kTextTertiary),
+                  hintStyle: const TextStyle(
+                      fontSize: 13,
+                      color: _kTextTertiary,
+                      fontFamily: 'monospace'),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  filled: true,
+                  fillColor: _kBg,
                   enabledBorder: OutlineInputBorder(
                     borderRadius: _kRadiusSm,
-                    borderSide: const BorderSide(color: _kBorder, width: 0.5),
+                    borderSide: const BorderSide(color: _kBorder, width: 1),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: _kRadiusSm,
-                    borderSide: const BorderSide(color: _kPrimary),
+                    borderSide: const BorderSide(color: _kPrimary, width: 1),
                   ),
                 ),
                 onSubmitted: (_) => _add(),
               ),
             ),
             const SizedBox(width: 10),
-            FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: _kPrimary,
+            GestureDetector(
+              onTap: _add,
+              child: Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: _kRadiusSm),
+                decoration: BoxDecoration(
+                  color: _kPrimary,
+                  borderRadius: _kRadiusSm,
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.add, size: 16, color: Color(0xFF0D1117)),
+                    SizedBox(width: 5),
+                    Text(
+                      'Add',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0D1117),
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              onPressed: _add,
-              icon: const Icon(Icons.add, size: 16),
-              label: const Text('Add', style: TextStyle(fontSize: 13)),
             ),
           ],
         ),
@@ -812,7 +942,7 @@ class _SensorSelectorWidgetState extends State<_SensorSelectorWidget> {
 }
 
 // ════════════════════════════════════════════════════════════
-//  DATE RANGE SELECTOR WIDGET (reusable)
+//  DATE RANGE SELECTOR WIDGET
 // ════════════════════════════════════════════════════════════
 
 class _DateRangeSelector extends StatelessWidget {
@@ -833,13 +963,24 @@ class _DateRangeSelector extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionLabel('Date range'),
-        const SizedBox(height: 10),
+        const _SectionLabel('Date Range'),
+        const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(child: _dateTile('Start', startDate, onPickStart)),
-            const SizedBox(width: 10),
-            Expanded(child: _dateTile('End', endDate, onPickEnd)),
+            Expanded(child: _dateTile('FROM', startDate, onPickStart)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: _kBorder,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Icon(Icons.arrow_forward,
+                    size: 12, color: _kTextSecondary),
+              ),
+            ),
+            Expanded(child: _dateTile('TO', endDate, onPickEnd)),
           ],
         ),
       ],
@@ -853,26 +994,45 @@ class _DateRangeSelector extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          border: Border.all(color: _kBorder, width: 0.5),
+          color: _kBg,
+          border: Border.all(color: _kBorder, width: 1),
           borderRadius: _kRadiusSm,
         ),
         child: Row(
           children: [
-            const Icon(Icons.calendar_today_outlined,
-                size: 15, color: _kTextTertiary),
-            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: _kPrimary.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: const Icon(Icons.calendar_today_outlined,
+                  size: 12, color: _kPrimary),
+            ),
+            const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label,
-                    style:
-                        const TextStyle(fontSize: 10, color: _kTextTertiary)),
-                const SizedBox(height: 1),
-                Text(DateFormat('dd MMM yyyy').format(date),
-                    style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: _kTextPrimary)),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 9,
+                    color: _kTextTertiary,
+                    letterSpacing: 1.0,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  DateFormat('dd MMM yyyy').format(date),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: _kTextPrimary,
+                    fontFamily: 'monospace',
+                  ),
+                ),
               ],
             ),
           ],
@@ -883,7 +1043,7 @@ class _DateRangeSelector extends StatelessWidget {
 }
 
 // ════════════════════════════════════════════════════════════
-//  CHART WIDGET (reusable)
+//  CHART WIDGET
 // ════════════════════════════════════════════════════════════
 
 class _ChartWidget extends StatefulWidget {
@@ -952,33 +1112,67 @@ class _ChartWidgetState extends State<_ChartWidget> {
     final pad = (allYMax - allYMin) * 0.08;
 
     return _AppCard(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(widget.title,
-                  style: const TextStyle(
-                      fontSize: 14,
+              Row(
+                children: [
+                  Container(
+                    width: 2,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: widget.lineBars.isNotEmpty
+                          ? (widget.lineBars.first.color ?? _kPrimary)
+                          : _kPrimary,
+                      borderRadius: BorderRadius.circular(1),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    widget.title,
+                    style: const TextStyle(
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: _kTextPrimary)),
+                      color: _kTextPrimary,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ],
+              ),
               if (_zoom > 1.0)
                 GestureDetector(
                   onTap: _resetZoom,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(Icons.zoom_out_map, size: 14, color: _kPrimary),
-                      SizedBox(width: 4),
-                      Text('Reset zoom',
-                          style: TextStyle(fontSize: 12, color: _kPrimary)),
-                    ],
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _kPrimary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                          color: _kPrimary.withOpacity(0.3), width: 1),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.zoom_out_map, size: 12, color: _kPrimary),
+                        SizedBox(width: 4),
+                        Text('Reset',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: _kPrimary,
+                              fontFamily: 'monospace',
+                            )),
+                      ],
+                    ),
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           SizedBox(
             height: 220,
             child: RawGestureDetector(
@@ -1035,16 +1229,17 @@ class _ChartWidgetState extends State<_ChartWidget> {
                     maxX: maxX,
                     minY: allYMin - pad,
                     maxY: allYMax + pad,
+                    backgroundColor: _kBg,
                     gridData: FlGridData(
                       show: true,
-                      getDrawingHorizontalLine: (_) => FlLine(
-                          color: _kBorder.withOpacity(0.6), strokeWidth: 0.5),
-                      getDrawingVerticalLine: (_) => FlLine(
-                          color: _kBorder.withOpacity(0.6), strokeWidth: 0.5),
+                      getDrawingHorizontalLine: (_) => const FlLine(
+                          color: Color(0xFF21262D), strokeWidth: 1),
+                      getDrawingVerticalLine: (_) => const FlLine(
+                          color: Color(0xFF21262D), strokeWidth: 1),
                     ),
                     borderData: FlBorderData(
                       show: true,
-                      border: Border.all(color: _kBorder, width: 0.5),
+                      border: Border.all(color: _kBorder, width: 1),
                     ),
                     titlesData: FlTitlesData(
                       topTitles: const AxisTitles(
@@ -1054,25 +1249,39 @@ class _ChartWidgetState extends State<_ChartWidget> {
                       leftTitles: AxisTitles(
                         sideTitles: SideTitles(
                           showTitles: true,
-                          reservedSize: 44,
-                          getTitlesWidget: (v, _) => Text(v.toStringAsFixed(1),
+                          reservedSize: 48,
+                          getTitlesWidget: (v, _) => Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: Text(
+                              v.toStringAsFixed(1),
                               style: const TextStyle(
-                                  fontSize: 9, color: _kTextTertiary)),
+                                fontSize: 9,
+                                color: _kTextTertiary,
+                                fontFamily: 'monospace',
+                              ),
+                              textAlign: TextAlign.right,
+                            ),
+                          ),
                         ),
                       ),
                       bottomTitles: AxisTitles(
                         sideTitles: SideTitles(
                           showTitles: true,
-                          reservedSize: 28,
+                          reservedSize: 26,
                           interval: max(1.0, (visible / 8).ceilToDouble()),
                           getTitlesWidget: (v, _) {
                             final t = widget.globalMin
                                 .add(Duration(seconds: (v * 60).round()));
                             return Padding(
                               padding: const EdgeInsets.only(top: 4),
-                              child: Text(DateFormat('HH:mm').format(t),
-                                  style: const TextStyle(
-                                      fontSize: 9, color: _kTextTertiary)),
+                              child: Text(
+                                DateFormat('HH:mm').format(t),
+                                style: const TextStyle(
+                                  fontSize: 9,
+                                  color: _kTextTertiary,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
                             );
                           },
                         ),
@@ -1081,10 +1290,12 @@ class _ChartWidgetState extends State<_ChartWidget> {
                     lineBarsData: widget.lineBars,
                     lineTouchData: LineTouchData(
                       touchTooltipData: LineTouchTooltipData(
-                        getTooltipColor: (_) => Colors.white,
+                        getTooltipColor: (_) =>
+                            _kSurfaceElevated.withOpacity(0.8),
+                        tooltipMargin: 20,
                         tooltipBorder:
-                            const BorderSide(color: _kBorder, width: 0.5),
-                        tooltipRoundedRadius: 8,
+                            const BorderSide(color: _kBorderAccent, width: 1),
+                        tooltipRoundedRadius: 7,
                         fitInsideHorizontally: true,
                         fitInsideVertically: true,
                         getTooltipItems: widget.getTooltipItems,
@@ -1141,9 +1352,16 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
 
   void _snack(String msg) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(msg),
+        content: Text(
+          msg,
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+        ),
+        backgroundColor: _kSurfaceElevated,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: _kRadiusSm),
+        shape: RoundedRectangleBorder(
+          borderRadius: _kRadiusSm,
+          side: const BorderSide(color: _kBorder),
+        ),
       ));
 
   // ── Sensor-vs-Sensor state ────────────────────────────────────────────────
@@ -1197,7 +1415,12 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
       lastDate: DateTime(2030),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.light(primary: _kPrimary),
+          colorScheme: const ColorScheme.dark(
+            primary: _kPrimary,
+            onPrimary: Color(0xFF0D1117),
+            surface: _kSurface,
+            onSurface: _kTextPrimary,
+          ),
         ),
         child: child!,
       ),
@@ -1546,67 +1769,136 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
         _isImdTab ? (_imdLoading || _imdCsvLoading) : (_loading || _csvLoading);
     final hasData = _isImdTab ? _imdData.isNotEmpty : _devicesData.isNotEmpty;
 
-    return Scaffold(
-      backgroundColor: _kBg,
-      appBar: AppBar(
-        title: const Text('Weather Sensor Dashboard',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-        backgroundColor: Colors.white,
-        foregroundColor: _kTextPrimary,
-        elevation: 0,
-        surfaceTintColor: Colors.white,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
+    return Theme(
+      data: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: _kBg,
+        colorScheme: const ColorScheme.dark(
+          primary: _kPrimary,
+          surface: _kSurface,
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: _kBg,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(108),
           child: Container(
-            color: Colors.white,
-            child: TabBar(
-              controller: _tabController,
-              labelColor: _kPrimary,
-              unselectedLabelColor: _kTextSecondary,
-              indicatorColor: _kPrimary,
-              indicatorWeight: 2,
-              labelStyle:
-                  const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-              unselectedLabelStyle: const TextStyle(fontSize: 13),
-              tabs: const [
-                Tab(text: 'Sensor vs Sensor'),
-                Tab(text: 'IMD Comparison'),
-              ],
+            color: _kSurface,
+            child: SafeArea(
+              child: Column(
+                children: [
+                  // Top bar
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    child: Row(
+                      children: [
+                        // Logo mark
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: _kPrimary.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: _kPrimary.withOpacity(0.4), width: 1),
+                          ),
+                          child: const Icon(Icons.sensors,
+                              size: 16, color: _kPrimary),
+                        ),
+                        const SizedBox(width: 12),
+                        const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'WEATHER SENSOR DASHBOARD',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: _kTextPrimary,
+                                letterSpacing: 1.0,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                            Text(
+                              'Real-time meteorological comparison',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: _kTextSecondary,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Spacer(),
+                        if (hasData) ...[
+                          if (isBusy)
+                            Container(
+                              width: 28,
+                              height: 28,
+                              padding: const EdgeInsets.all(6),
+                              child: const CircularProgressIndicator(
+                                  strokeWidth: 2, color: _kPrimary),
+                            )
+                          else ...[
+                            _AppBarButton(
+                              icon: Icons.download_outlined,
+                              tooltip: 'Export CSV',
+                              onTap: _isImdTab
+                                  ? _downloadImdCsv
+                                  : _downloadSensorCsv,
+                            ),
+                            const SizedBox(width: 8),
+                            _AppBarButton(
+                              icon: Icons.refresh_outlined,
+                              tooltip: 'Refresh',
+                              onTap:
+                                  _isImdTab ? _fetchImdData : _fetchSensorData,
+                            ),
+                          ],
+                        ],
+                      ],
+                    ),
+                  ),
+                  // Tab bar
+                  Container(
+                    decoration: const BoxDecoration(
+                      border:
+                          Border(bottom: BorderSide(color: _kBorder, width: 1)),
+                    ),
+                    child: TabBar(
+                      controller: _tabController,
+                      labelColor: _kPrimary,
+                      unselectedLabelColor: _kTextSecondary,
+                      indicatorColor: _kPrimary,
+                      indicatorWeight: 2,
+                      labelStyle: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                        fontFamily: 'monospace',
+                      ),
+                      unselectedLabelStyle: const TextStyle(
+                        fontSize: 12,
+                        fontFamily: 'monospace',
+                      ),
+                      tabs: const [
+                        Tab(text: 'SENSOR vs SENSOR'),
+                        Tab(text: 'IMD COMPARISON'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-        actions: [
-          if (hasData) ...[
-            if (isBusy)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Center(
-                    child: SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: _kPrimary))),
-              )
-            else
-              IconButton(
-                icon: const Icon(Icons.download_outlined),
-                tooltip: 'Download CSV',
-                onPressed: _isImdTab ? _downloadImdCsv : _downloadSensorCsv,
-              ),
-            IconButton(
-              icon: const Icon(Icons.refresh_outlined),
-              tooltip: 'Refresh',
-              onPressed: _isImdTab ? _fetchImdData : _fetchSensorData,
-            ),
+        body: TabBarView(
+          controller: _tabController,
+          children: [
+            _buildSensorTab(),
+            _buildImdTab(),
           ],
-        ],
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildSensorTab(),
-          _buildImdTab(),
-        ],
+        ),
       ),
     );
   }
@@ -1620,7 +1912,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // Config card
           _AppCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1647,7 +1938,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                   },
                 ),
                 const SizedBox(height: 18),
-                const Divider(color: _kBorder, thickness: 0.5),
+                const Divider(color: _kBorder, thickness: 1),
                 const SizedBox(height: 14),
                 _DateRangeSelector(
                   startDate: _startDate,
@@ -1656,10 +1947,10 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                   onPickEnd: () => _pickDate(false),
                 ),
                 const SizedBox(height: 18),
-                const Divider(color: _kBorder, thickness: 0.5),
+                const Divider(color: _kBorder, thickness: 1),
                 const SizedBox(height: 14),
                 const _SectionLabel('Parameters'),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -1682,36 +1973,20 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                   }).toList(),
                 ),
                 const SizedBox(height: 18),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _kPrimary,
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(borderRadius: _kRadiusSm),
-                    ),
-                    onPressed: _loading ? null : _fetchSensorData,
-                    icon: _loading
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white))
-                        : const Icon(Icons.compare_arrows, size: 18),
-                    label: Text(_loading ? 'Loading...' : 'Compare Sensors',
-                        style: const TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w500)),
-                  ),
+                _ActionButton(
+                  label: _loading ? 'LOADING...' : 'COMPARE SENSORS',
+                  icon: _loading ? null : Icons.compare_arrows,
+                  loading: _loading,
+                  color: _kPrimary,
+                  onTap: _loading ? null : _fetchSensorData,
                 ),
               ],
             ),
           ),
-
           if (_error != null) ...[
             const SizedBox(height: 12),
             _ErrorBanner(_error!),
           ],
-
           if (!_loading &&
               _devicesData.isNotEmpty &&
               _globalMinTime != null) ...[
@@ -1732,12 +2007,12 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                     spots: spots,
                     isCurved: true,
                     color: device.color,
-                    barWidth: 2.5,
+                    barWidth: 2,
                     dotData: const FlDotData(show: false));
               }).toList();
 
               return Padding(
-                padding: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.only(bottom: 12),
                 child: _ChartWidget(
                   title: parameterLabel(p),
                   lineBars: lineBars,
@@ -1777,16 +2052,16 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                     return LineTooltipItem(
                       '$ts\n${device.label}: $fmtVal$diffText',
                       TextStyle(
-                          color: device.color,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600),
+                        color: device.color,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'monospace',
+                      ),
                     );
                   }).toList(),
                 ),
               );
             }),
-
-            // Statistics
             _buildSensorStats(),
           ],
           const SizedBox(height: 24),
@@ -1803,16 +2078,43 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
         children: [
           Row(
             children: [
-              const Icon(Icons.analytics_outlined, size: 16, color: _kPrimary),
-              const SizedBox(width: 8),
-              const Text('Statistics',
-                  style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: _kTextPrimary)),
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: _kPrimary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(Icons.analytics_outlined,
+                    size: 14, color: _kPrimary),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'STATISTICS',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: _kTextPrimary,
+                  letterSpacing: 0.8,
+                  fontFamily: 'monospace',
+                ),
+              ),
               const Spacer(),
-              Text('${_matched.length} matched pts',
-                  style: const TextStyle(fontSize: 11, color: _kTextTertiary)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: _kBg,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: _kBorder),
+                ),
+                child: Text(
+                  '${_matched.length} pts',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: _kTextSecondary,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ),
             ],
           ),
           ..._selectedParams.map((p) {
@@ -1833,56 +2135,58 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
               final d = _devicesData[i];
               final s = _stats(vals[d.key] ?? []);
               if (s.isEmpty) continue;
-              // Latest wind direction reading for this device
               final latestWind = isWind && d.data.isNotEmpty
                   ? d.data.last.windDirection
                   : null;
 
               statRows.add(Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.only(bottom: 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(children: [
                       Container(
-                          width: 8,
-                          height: 8,
+                          width: 6,
+                          height: 6,
                           decoration: BoxDecoration(
                               color: d.color, shape: BoxShape.circle)),
-                      const SizedBox(width: 6),
-                      Text(d.label,
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: d.color)),
+                      const SizedBox(width: 7),
+                      Text(
+                        d.label,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: d.color,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
                     ]),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     Row(children: [
                       Expanded(
                           child: _MetricCard(
-                              label: 'Max',
+                              label: 'MAX',
                               value: '${s['max']!.toStringAsFixed(1)} $unit',
-                              color: const Color(0xFFDC2626))),
+                              color: _kRed)),
                       const SizedBox(width: 8),
                       Expanded(
                           child: _MetricCard(
-                              label: 'Avg',
+                              label: 'AVG',
                               value: '${s['avg']!.toStringAsFixed(1)} $unit',
-                              color: const Color(0xFF2563EB))),
+                              color: _kPrimary)),
                       const SizedBox(width: 8),
                       Expanded(
                           child: _MetricCard(
-                              label: 'Min',
+                              label: 'MIN',
                               value: '${s['min']!.toStringAsFixed(1)} $unit',
-                              color: const Color(0xFF16A34A))),
+                              color: _kGreen)),
                     ]),
                     if (isWind && latestWind != null) ...[
                       const SizedBox(height: 8),
                       _WindDirectionCard(
-                        label: 'Current',
-                        degrees: latestWind,
-                        color: d.color,
-                      ),
+                          label: 'CURRENT',
+                          degrees: latestWind,
+                          color: d.color),
                     ],
                   ],
                 ),
@@ -1911,62 +2215,65 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF9FAFB),
+                    color: _kBg,
                     borderRadius: _kRadiusSm,
-                    border: Border.all(color: _kBorder, width: 0.5),
+                    border: Border.all(color: _kBorderAccent, width: 1),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(children: [
                         Container(
-                            width: 8,
-                            height: 8,
+                            width: 6,
+                            height: 6,
                             decoration: BoxDecoration(
                                 color: _devicesData[i].color,
                                 shape: BoxShape.circle)),
                         const SizedBox(width: 4),
                         Text(_devicesData[i].key,
                             style: TextStyle(
-                                fontSize: 11,
-                                color: _devicesData[i].color,
-                                fontWeight: FontWeight.w500)),
+                              fontSize: 11,
+                              color: _devicesData[i].color,
+                              fontFamily: 'monospace',
+                            )),
                         const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 6),
-                            child: Icon(Icons.compare_arrows,
-                                size: 13, color: _kTextTertiary)),
+                            padding: EdgeInsets.symmetric(horizontal: 7),
+                            child: Text('↔',
+                                style: TextStyle(
+                                    fontSize: 12, color: _kTextTertiary))),
                         Container(
-                            width: 8,
-                            height: 8,
+                            width: 6,
+                            height: 6,
                             decoration: BoxDecoration(
                                 color: _devicesData[j].color,
                                 shape: BoxShape.circle)),
                         const SizedBox(width: 4),
                         Text(_devicesData[j].key,
                             style: TextStyle(
-                                fontSize: 11,
-                                color: _devicesData[j].color,
-                                fontWeight: FontWeight.w500)),
+                              fontSize: 11,
+                              color: _devicesData[j].color,
+                              fontFamily: 'monospace',
+                            )),
                       ]),
                       const SizedBox(height: 8),
                       Row(children: [
                         Expanded(
                             child: _MetricCard(
-                                label: 'Max Δ',
+                                label: 'MAX Δ',
                                 value: '${ds['max']!.toStringAsFixed(2)} $unit',
-                                color: const Color(0xFFDC2626))),
+                                color: _kRed)),
                         const SizedBox(width: 8),
                         Expanded(
                             child: _MetricCard(
-                                label: 'Avg Δ',
+                                label: 'AVG Δ',
                                 value: '${ds['avg']!.toStringAsFixed(2)} $unit',
-                                color: const Color(0xFF9333EA))),
+                                color: _kAmber)),
                         const SizedBox(width: 8),
                         Expanded(
                             child: _MetricCard(
-                                label: 'Min Δ',
+                                label: 'MIN Δ',
                                 value: '${ds['min']!.toStringAsFixed(2)} $unit',
-                                color: const Color(0xFF0D9488))),
+                                color: _kGreen)),
                       ]),
                     ],
                   ),
@@ -1980,12 +2287,22 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                 _sectionDivider(parameterLabel(p)),
                 ...statRows,
                 if (diffWidgets.isNotEmpty) ...[
-                  const Text('Differences',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: _kTextSecondary)),
-                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(children: [
+                      const Icon(Icons.compare_arrows,
+                          size: 12, color: _kTextTertiary),
+                      const SizedBox(width: 6),
+                      const Text('DIFFERENCES',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: _kTextTertiary,
+                            letterSpacing: 0.8,
+                            fontFamily: 'monospace',
+                          )),
+                    ]),
+                  ),
                   ...diffWidgets,
                 ],
               ],
@@ -2005,32 +2322,52 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // Config card
           _AppCard(
+            borderColor: _kImdColor.withOpacity(0.3),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // IMD station info
+                // IMD station chip
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                   decoration: BoxDecoration(
-                    color: _kImdColor.withOpacity(0.06),
+                    color: _kImdColor.withOpacity(0.08),
                     borderRadius: _kRadiusSm,
                     border: Border.all(
-                        color: _kImdColor.withOpacity(0.2), width: 0.5),
+                        color: _kImdColor.withOpacity(0.25), width: 1),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.location_on_outlined,
-                          size: 14, color: _kImdColor),
-                      const SizedBox(width: 6),
-                      const Text(
-                          'IMD Station: CGDAC000 — DAV School, Chandigarh',
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _kImdColor,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'IMD',
                           style: TextStyle(
-                              fontSize: 12,
-                              color: _kImdColor,
-                              fontWeight: FontWeight.w500)),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0D1117),
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Text(
+                          'Station: CGDAC000 — DAV School, Chandigarh',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: _kImdColor,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -2057,7 +2394,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                   },
                 ),
                 const SizedBox(height: 18),
-                const Divider(color: _kBorder, thickness: 0.5),
+                const Divider(color: _kBorder, thickness: 1),
                 const SizedBox(height: 14),
                 _DateRangeSelector(
                   startDate: _imdStart,
@@ -2066,10 +2403,10 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                   onPickEnd: () => _pickDate(false, imd: true),
                 ),
                 const SizedBox(height: 18),
-                const Divider(color: _kBorder, thickness: 0.5),
+                const Divider(color: _kBorder, thickness: 1),
                 const SizedBox(height: 14),
                 const _SectionLabel('Parameters'),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -2078,6 +2415,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                     return _ParamChip(
                       label: imdParamLabel(p),
                       selected: sel,
+                      accentColor: _kImdColor,
                       onTap: () => setState(() {
                         if (sel) {
                           if (_imdParams.length > 1)
@@ -2092,36 +2430,20 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                   }).toList(),
                 ),
                 const SizedBox(height: 18),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _kImdColor,
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(borderRadius: _kRadiusSm),
-                    ),
-                    onPressed: _imdLoading ? null : _fetchImdData,
-                    icon: _imdLoading
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white))
-                        : const Icon(Icons.sync, size: 18),
-                    label: Text(_imdLoading ? 'Loading...' : 'Fetch & Compare',
-                        style: const TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w500)),
-                  ),
+                _ActionButton(
+                  label: _imdLoading ? 'LOADING...' : 'FETCH & COMPARE',
+                  icon: _imdLoading ? null : Icons.sync,
+                  loading: _imdLoading,
+                  color: _kImdColor,
+                  onTap: _imdLoading ? null : _fetchImdData,
                 ),
               ],
             ),
           ),
-
           if (_imdError != null) ...[
             const SizedBox(height: 12),
             _ErrorBanner(_imdError!),
           ],
-
           if (!_imdLoading && _imdData.isNotEmpty && _imdGlobalMin != null) ...[
             const SizedBox(height: 16),
             ..._imdParams.map((p) {
@@ -2168,7 +2490,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                     spots: imdSpots,
                     isCurved: true,
                     color: _kImdColor,
-                    barWidth: 3,
+                    barWidth: 2.5,
                     dotData: const FlDotData(show: false)),
                 ..._imdSensors.asMap().entries.map((e) {
                   final bucketed = _imdBucketedData[e.value.key] ?? [];
@@ -2181,7 +2503,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                       spots: spots,
                       isCurved: true,
                       color: ColorPalette.getColor(e.key),
-                      barWidth: 2.5,
+                      barWidth: 2,
                       dotData: const FlDotData(show: false));
                 }),
               ];
@@ -2195,7 +2517,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
               ];
 
               return Padding(
-                padding: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.only(bottom: 12),
                 child: _ChartWidget(
                   title: imdParamLabel(p),
                   lineBars: lineBars,
@@ -2223,16 +2545,16 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                     return LineTooltipItem(
                       '${DateFormat('dd/MM HH:mm').format(t)}\n$label: ${spot.y.toStringAsFixed(1)} $unit$diffText',
                       TextStyle(
-                          color: color,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600),
+                        color: color,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'monospace',
+                      ),
                     );
                   }).toList(),
                 ),
               );
             }),
-
-            // IMD Stats
             _buildImdStats(),
           ],
           const SizedBox(height: 24),
@@ -2248,16 +2570,43 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
         children: [
           Row(
             children: [
-              const Icon(Icons.analytics_outlined, size: 16, color: _kImdColor),
-              const SizedBox(width: 8),
-              const Text('Statistical Summary',
-                  style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: _kTextPrimary)),
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: _kImdColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(Icons.analytics_outlined,
+                    size: 14, color: _kImdColor),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'STATISTICAL SUMMARY',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: _kTextPrimary,
+                  letterSpacing: 0.8,
+                  fontFamily: 'monospace',
+                ),
+              ),
               const Spacer(),
-              Text('${_imdData.length} IMD points',
-                  style: const TextStyle(fontSize: 11, color: _kTextTertiary)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: _kBg,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: _kBorder),
+                ),
+                child: Text(
+                  '${_imdData.length} pts',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: _kTextSecondary,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ),
             ],
           ),
           ..._imdParams.map((p) {
@@ -2302,59 +2651,61 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _sectionDivider(imdParamLabel(p)),
-                // IMD
+                // IMD row
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.only(bottom: 12),
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(children: [
                           Container(
-                              width: 8,
-                              height: 8,
+                              width: 6,
+                              height: 6,
                               decoration: const BoxDecoration(
                                   color: _kImdColor, shape: BoxShape.circle)),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 7),
                           const Text('IMD',
                               style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: _kImdColor)),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: _kImdColor,
+                                fontFamily: 'monospace',
+                              )),
                         ]),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
                         Row(children: [
                           Expanded(
                               child: _MetricCard(
-                                  label: 'Max',
+                                  label: 'MAX',
                                   value:
                                       '${imdStats['max']!.toStringAsFixed(1)} $unit',
-                                  color: const Color(0xFFDC2626))),
+                                  color: _kRed)),
                           const SizedBox(width: 8),
                           Expanded(
                               child: _MetricCard(
-                                  label: 'Avg',
+                                  label: 'AVG',
                                   value:
                                       '${imdStats['avg']!.toStringAsFixed(1)} $unit',
-                                  color: const Color(0xFF2563EB))),
+                                  color: _kImdColor)),
                           const SizedBox(width: 8),
                           Expanded(
                               child: _MetricCard(
-                                  label: 'Min',
+                                  label: 'MIN',
                                   value:
                                       '${imdStats['min']!.toStringAsFixed(1)} $unit',
-                                  color: const Color(0xFF16A34A))),
+                                  color: _kGreen)),
                         ]),
                         if (isWind && _imdData.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           _WindDirectionCard(
-                            label: 'Current (IMD)',
+                            label: 'CURRENT (IMD)',
                             degrees: _imdData.last.windDirection,
                             color: _kImdColor,
                           ),
                         ],
                       ]),
                 ),
-                // Per sensor + diff
+
                 ..._imdSensors.asMap().entries.map((e) {
                   final sensor = e.value;
                   final color = ColorPalette.getColor(e.key);
@@ -2374,7 +2725,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                   final ss = _stats(swVals);
                   final ds = _stats(diffs);
                   if (ss.isEmpty) return const SizedBox.shrink();
-                  // Latest bucketed wind for this sensor
                   final latestBucketedWind = isWind && bucketed.isNotEmpty
                       ? bucketed.last.windDirection
                       : null;
@@ -2382,51 +2732,53 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.only(bottom: 12),
                           child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(children: [
                                   Container(
-                                      width: 8,
-                                      height: 8,
+                                      width: 6,
+                                      height: 6,
                                       decoration: BoxDecoration(
                                           color: color,
                                           shape: BoxShape.circle)),
-                                  const SizedBox(width: 6),
+                                  const SizedBox(width: 7),
                                   Text(sensor.label,
                                       style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
-                                          color: color)),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: color,
+                                        fontFamily: 'monospace',
+                                      )),
                                 ]),
-                                const SizedBox(height: 6),
+                                const SizedBox(height: 8),
                                 Row(children: [
                                   Expanded(
                                       child: _MetricCard(
-                                          label: 'Max',
+                                          label: 'MAX',
                                           value:
                                               '${ss['max']!.toStringAsFixed(1)} $unit',
-                                          color: const Color(0xFFDC2626))),
+                                          color: _kRed)),
                                   const SizedBox(width: 8),
                                   Expanded(
                                       child: _MetricCard(
-                                          label: 'Avg',
+                                          label: 'AVG',
                                           value:
                                               '${ss['avg']!.toStringAsFixed(1)} $unit',
-                                          color: const Color(0xFF2563EB))),
+                                          color: _kPrimary)),
                                   const SizedBox(width: 8),
                                   Expanded(
                                       child: _MetricCard(
-                                          label: 'Min',
+                                          label: 'MIN',
                                           value:
                                               '${ss['min']!.toStringAsFixed(1)} $unit',
-                                          color: const Color(0xFF16A34A))),
+                                          color: _kGreen)),
                                 ]),
                                 if (isWind && latestBucketedWind != null) ...[
                                   const SizedBox(height: 8),
                                   _WindDirectionCard(
-                                    label: 'Current (${sensor.label})',
+                                    label: 'CURRENT (${sensor.label})',
                                     degrees: latestBucketedWind,
                                     color: color,
                                   ),
@@ -2435,48 +2787,51 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                         ),
                         if (ds.isNotEmpty)
                           Container(
-                            margin: const EdgeInsets.only(bottom: 10),
+                            margin: const EdgeInsets.only(bottom: 12),
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF9FAFB),
+                              color: _kBg,
                               borderRadius: _kRadiusSm,
-                              border: Border.all(color: _kBorder, width: 0.5),
+                              border:
+                                  Border.all(color: _kBorderAccent, width: 1),
                             ),
                             child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(children: [
                                     const Icon(Icons.compare_arrows,
-                                        size: 13, color: _kTextTertiary),
-                                    const SizedBox(width: 5),
+                                        size: 12, color: _kTextTertiary),
+                                    const SizedBox(width: 6),
                                     Text('|IMD − ${sensor.label}|',
                                         style: const TextStyle(
-                                            fontSize: 11,
-                                            color: _kTextSecondary,
-                                            fontWeight: FontWeight.w500)),
+                                          fontSize: 11,
+                                          color: _kTextSecondary,
+                                          fontWeight: FontWeight.w600,
+                                          fontFamily: 'monospace',
+                                        )),
                                   ]),
                                   const SizedBox(height: 8),
                                   Row(children: [
                                     Expanded(
                                         child: _MetricCard(
-                                            label: 'Max Δ',
+                                            label: 'MAX Δ',
                                             value:
                                                 '${ds['max']!.toStringAsFixed(2)} $unit',
-                                            color: const Color(0xFFDC2626))),
+                                            color: _kRed)),
                                     const SizedBox(width: 8),
                                     Expanded(
                                         child: _MetricCard(
-                                            label: 'Avg Δ',
+                                            label: 'AVG Δ',
                                             value:
                                                 '${ds['avg']!.toStringAsFixed(2)} $unit',
-                                            color: const Color(0xFF9333EA))),
+                                            color: _kAmber)),
                                     const SizedBox(width: 8),
                                     Expanded(
                                         child: _MetricCard(
-                                            label: 'Min Δ',
+                                            label: 'MIN Δ',
                                             value:
                                                 '${ds['min']!.toStringAsFixed(2)} $unit',
-                                            color: const Color(0xFF0D9488))),
+                                            color: _kGreen)),
                                   ]),
                                 ]),
                           ),
@@ -2492,12 +2847,87 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
 }
 
 // ════════════════════════════════════════════════════════════
-//  SMALL SHARED WIDGETS
+//  SMALL SHARED WIDGETS — Redesigned
 // ════════════════════════════════════════════════════════════
 
-// ════════════════════════════════════════════════════════════
-//  WIND DIRECTION CARD
-// ════════════════════════════════════════════════════════════
+class _AppBarButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  const _AppBarButton(
+      {required this.icon, required this.tooltip, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+        message: tooltip,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: _kSurfaceElevated,
+              borderRadius: BorderRadius.circular(7),
+              border: Border.all(color: _kBorder, width: 1),
+            ),
+            child: Icon(icon, size: 16, color: _kTextSecondary),
+          ),
+        ),
+      );
+}
+
+class _ActionButton extends StatelessWidget {
+  final String label;
+  final IconData? icon;
+  final bool loading;
+  final Color color;
+  final VoidCallback? onTap;
+  const _ActionButton({
+    required this.label,
+    required this.color,
+    this.icon,
+    this.loading = false,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 13),
+          decoration: BoxDecoration(
+            color: onTap != null ? color : color.withOpacity(0.3),
+            borderRadius: _kRadiusSm,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (loading)
+                const SizedBox(
+                  width: 15,
+                  height: 15,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Color(0xFF0D1117)),
+                )
+              else if (icon != null)
+                Icon(icon, size: 16, color: const Color(0xFF0D1117)),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0D1117),
+                  letterSpacing: 0.8,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+}
 
 class _WindDirectionCard extends StatelessWidget {
   final String label;
@@ -2515,28 +2945,58 @@ class _WindDirectionCard extends StatelessWidget {
     final direction = degreesToDirection(degrees);
     final angle = degrees * 3.14159265358979 / 180.0;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: color.withOpacity(0.06),
         borderRadius: _kRadiusSm,
-        border: Border.all(color: color.withOpacity(0.25), width: 0.5),
+        border: Border.all(color: color.withOpacity(0.22), width: 1),
       ),
-      child: Column(
+      child: Row(
         children: [
-          Text(label,
-              style: const TextStyle(fontSize: 10, color: _kTextTertiary)),
-          const SizedBox(height: 8),
-          Transform.rotate(
-            angle: angle,
-            child: Icon(Icons.navigation, size: 28, color: color),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 9,
+                  color: _kTextTertiary,
+                  letterSpacing: 1.0,
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Transform.rotate(
+                angle: angle,
+                child: Icon(Icons.navigation, size: 30, color: color),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
-          Text(direction,
-              style: TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.w700, color: color)),
-          const SizedBox(height: 2),
-          Text('${degrees.toStringAsFixed(1)}°',
-              style: TextStyle(fontSize: 11, color: color.withOpacity(0.7))),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                direction,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                  fontFamily: 'monospace',
+                  letterSpacing: -0.5,
+                ),
+              ),
+              Text(
+                '${degrees.toStringAsFixed(1)}°',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: color.withOpacity(0.6),
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -2547,29 +3007,41 @@ class _ParamChip extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final Color? accentColor;
   const _ParamChip(
-      {required this.label, required this.selected, required this.onTap});
+      {required this.label,
+      required this.selected,
+      required this.onTap,
+      this.accentColor});
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          decoration: BoxDecoration(
-            color: selected ? _kPrimaryLight : Colors.transparent,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-                color: selected ? _kPrimary.withOpacity(0.5) : _kBorder,
-                width: 0.5),
+  Widget build(BuildContext context) {
+    final accent = accentColor ?? _kPrimary;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? accent.withOpacity(0.12) : _kBg,
+          borderRadius: BorderRadius.circular(5),
+          border: Border.all(
+            color: selected ? accent.withOpacity(0.5) : _kBorder,
+            width: 1,
           ),
-          child: Text(label,
-              style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                  color: selected ? _kPrimary : _kTextSecondary)),
         ),
-      );
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.normal,
+            color: selected ? accent : _kTextSecondary,
+            fontFamily: 'monospace',
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _ErrorBanner extends StatelessWidget {
@@ -2580,18 +3052,31 @@ class _ErrorBanner extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFFFEF2F2),
+          color: _kRed.withOpacity(0.07),
           borderRadius: _kRadiusSm,
-          border: Border.all(color: const Color(0xFFFECACA), width: 0.5),
+          border: Border.all(color: _kRed.withOpacity(0.3), width: 1),
         ),
         child: Row(
           children: [
-            const Icon(Icons.error_outline, size: 16, color: Color(0xFFDC2626)),
-            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: _kRed.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Icon(Icons.error_outline, size: 14, color: _kRed),
+            ),
+            const SizedBox(width: 10),
             Expanded(
-                child: Text(message,
-                    style: const TextStyle(
-                        fontSize: 12, color: Color(0xFF991B1B)))),
+              child: Text(
+                message,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: _kRed,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
           ],
         ),
       );
