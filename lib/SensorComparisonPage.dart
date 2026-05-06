@@ -627,7 +627,7 @@ class _MetricCard extends StatelessWidget {
               label,
               style: const TextStyle(
                 fontSize: 9,
-                color: _kTextTertiary,
+                color: _kTextPrimary,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.8,
                 fontFamily: 'monospace',
@@ -639,7 +639,7 @@ class _MetricCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: color,
+                color: _kTextPrimary,
                 fontFamily: 'monospace',
                 letterSpacing: -0.3,
               ),
@@ -1255,8 +1255,8 @@ class _ChartWidgetState extends State<_ChartWidget> {
                             child: Text(
                               v.toStringAsFixed(1),
                               style: const TextStyle(
-                                fontSize: 9,
-                                color: _kTextTertiary,
+                                fontSize: 10,
+                                color: _kTextPrimary,
                                 fontFamily: 'monospace',
                               ),
                               textAlign: TextAlign.right,
@@ -1277,8 +1277,8 @@ class _ChartWidgetState extends State<_ChartWidget> {
                               child: Text(
                                 DateFormat('HH:mm').format(t),
                                 style: const TextStyle(
-                                  fontSize: 9,
-                                  color: _kTextTertiary,
+                                  fontSize: 10,
+                                  color: _kTextPrimary,
                                   fontFamily: 'monospace',
                                 ),
                               ),
@@ -1868,7 +1868,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                     child: TabBar(
                       controller: _tabController,
                       labelColor: _kPrimary,
-                      unselectedLabelColor: _kTextSecondary,
+                      unselectedLabelColor: _kTextPrimary,
                       indicatorColor: _kPrimary,
                       indicatorWeight: 2,
                       labelStyle: const TextStyle(
@@ -1973,12 +1973,14 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                   }).toList(),
                 ),
                 const SizedBox(height: 18),
-                _ActionButton(
-                  label: _loading ? 'LOADING...' : 'COMPARE SENSORS',
-                  icon: _loading ? null : Icons.compare_arrows,
-                  loading: _loading,
-                  color: _kPrimary,
-                  onTap: _loading ? null : _fetchSensorData,
+                Center(
+                  child: _ActionButton(
+                    label: _loading ? 'LOADING...' : 'COMPARE SENSORS',
+                    icon: _loading ? null : Icons.compare_arrows,
+                    loading: _loading,
+                    color: _kPrimary,
+                    onTap: _loading ? null : _fetchSensorData,
+                  ),
                 ),
               ],
             ),
@@ -2287,17 +2289,17 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                 _sectionDivider(parameterLabel(p)),
                 ...statRows,
                 if (diffWidgets.isNotEmpty) ...[
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 8),
                     child: Row(children: [
-                      const Icon(Icons.compare_arrows,
-                          size: 12, color: _kTextTertiary),
-                      const SizedBox(width: 6),
-                      const Text('DIFFERENCES',
+                      Icon(Icons.compare_arrows,
+                          size: 12, color: _kTextPrimary),
+                      SizedBox(width: 6),
+                      Text('DIFFERENCES',
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
-                            color: _kTextTertiary,
+                            color: _kTextPrimary,
                             letterSpacing: 0.8,
                             fontFamily: 'monospace',
                           )),
@@ -2430,12 +2432,14 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                   }).toList(),
                 ),
                 const SizedBox(height: 18),
-                _ActionButton(
-                  label: _imdLoading ? 'LOADING...' : 'FETCH & COMPARE',
-                  icon: _imdLoading ? null : Icons.sync,
-                  loading: _imdLoading,
-                  color: _kImdColor,
-                  onTap: _imdLoading ? null : _fetchImdData,
+                Center(
+                  child: _ActionButton(
+                    label: _imdLoading ? 'LOADING...' : 'COMPARE SENSORS',
+                    icon: _imdLoading ? null : Icons.sync,
+                    loading: _imdLoading,
+                    color: _kImdColor,
+                    onTap: _imdLoading ? null : _fetchImdData,
+                  ),
                 ),
               ],
             ),
@@ -2894,13 +2898,13 @@ class _ActionButton extends StatelessWidget {
   Widget build(BuildContext context) => GestureDetector(
         onTap: onTap,
         child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 13),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
           decoration: BoxDecoration(
             color: onTap != null ? color : color.withOpacity(0.3),
             borderRadius: _kRadiusSm,
           ),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (loading)
@@ -2960,7 +2964,7 @@ class _WindDirectionCard extends StatelessWidget {
                 label,
                 style: const TextStyle(
                   fontSize: 9,
-                  color: _kTextTertiary,
+                  color: _kTextPrimary,
                   letterSpacing: 1.0,
                   fontFamily: 'monospace',
                   fontWeight: FontWeight.w600,
@@ -2969,7 +2973,7 @@ class _WindDirectionCard extends StatelessWidget {
               const SizedBox(height: 6),
               Transform.rotate(
                 angle: angle,
-                child: Icon(Icons.navigation, size: 30, color: color),
+                child: Icon(Icons.navigation, size: 30, color: _kTextPrimary),
               ),
             ],
           ),
@@ -2982,7 +2986,7 @@ class _WindDirectionCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
-                  color: color,
+                  color: _kTextPrimary,
                   fontFamily: 'monospace',
                   letterSpacing: -0.5,
                 ),
@@ -2991,7 +2995,7 @@ class _WindDirectionCard extends StatelessWidget {
                 '${degrees.toStringAsFixed(1)}°',
                 style: TextStyle(
                   fontSize: 12,
-                  color: color.withOpacity(0.6),
+                  color: _kTextPrimary.withOpacity(0.6),
                   fontFamily: 'monospace',
                 ),
               ),
