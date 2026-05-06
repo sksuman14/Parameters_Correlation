@@ -10,9 +10,10 @@ import 'package:http/http.dart' as http;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 
-/// =======================
-/// SENSOR TYPE
-/// =======================
+// ════════════════════════════════════════════════════════════
+//  SENSOR TYPE
+// ════════════════════════════════════════════════════════════
+
 enum SensorType { cp, sw, wj, wm }
 
 String sensorTypeLabel(SensorType t) {
@@ -28,9 +29,10 @@ String sensorTypeLabel(SensorType t) {
   }
 }
 
-/// =======================
-/// MODEL
-/// =======================
+// ════════════════════════════════════════════════════════════
+//  MODELS
+// ════════════════════════════════════════════════════════════
+
 class WeatherData {
   final DateTime timeStamp;
   final double atmPressure;
@@ -53,7 +55,6 @@ class WeatherData {
   factory WeatherData.fromJson(Map<String, dynamic> json) {
     final rawTs = (json['TimeStamp'] ?? '').toString().trim();
     final normTs = rawTs.replaceFirst(RegExp(r' (?=\d{2}:\d{2})'), 'T');
-
     return WeatherData(
       timeStamp: DateTime.parse(normTs),
       atmPressure: (json['AtmPressure'] ?? 0).toDouble(),
@@ -66,9 +67,6 @@ class WeatherData {
   }
 }
 
-/// =======================
-/// IMD DATA MODEL
-/// =======================
 class IMDData {
   final DateTime timeStamp;
   final double currTemp;
@@ -95,8 +93,7 @@ class IMDData {
   factory IMDData.fromJson(Map<String, dynamic> json) {
     final rawTs = (json['Timestamp'] ?? '').toString().trim();
     final normTs = rawTs.replaceFirst(RegExp(r' (?=\d{2}:\d{2})'), 'T');
-
-    double _parse(dynamic v) {
+    double p(dynamic v) {
       if (v == null) return 0.0;
       if (v is num) return v.toDouble();
       return double.tryParse(v.toString()) ?? 0.0;
@@ -104,102 +101,29 @@ class IMDData {
 
     return IMDData(
       timeStamp: DateTime.parse(normTs),
-      currTemp: _parse(json['CURR_TEMP']),
-      minTemp: _parse(json['MIN_TEMP']),
-      maxTemp: _parse(json['MAX_TEMP']),
-      relativeHumidity: _parse(json['RH']),
-      mslp: _parse(json['MSLP']),
-      windSpeed: _parse(json['WIND_SPEED']),
-      windDirection: _parse(json['WIND_DIRECTION']),
+      currTemp: p(json['CURR_TEMP']),
+      minTemp: p(json['MIN_TEMP']),
+      maxTemp: p(json['MAX_TEMP']),
+      relativeHumidity: p(json['RH']),
+      mslp: p(json['MSLP']),
+      windSpeed: p(json['WIND_SPEED']),
+      windDirection: p(json['WIND_DIRECTION']),
       station: (json['STATION'] ?? '').toString(),
     );
   }
 }
 
-/// =======================
-/// IMD COMPARISON PARAMETER
-/// =======================
-enum IMDCompareParameter {
-  temperature,
-  humidity,
-  pressure,
-  windSpeed,
-  windDirection,
-}
+// ════════════════════════════════════════════════════════════
+//  ENUMS & HELPERS
+// ════════════════════════════════════════════════════════════
 
-String imdParamLabel(IMDCompareParameter p) {
-  switch (p) {
-    case IMDCompareParameter.temperature:
-      return 'Temperature (°C)';
-    case IMDCompareParameter.humidity:
-      return 'Humidity (%)';
-    case IMDCompareParameter.pressure:
-      return 'Pressure (hPa)';
-    case IMDCompareParameter.windSpeed:
-      return 'Wind Speed (m/s)';
-    case IMDCompareParameter.windDirection:
-      return 'Wind Direction (°)';
-  }
-}
-
-String imdParamUnit(IMDCompareParameter p) {
-  switch (p) {
-    case IMDCompareParameter.temperature:
-      return '°C';
-    case IMDCompareParameter.humidity:
-      return '%';
-    case IMDCompareParameter.pressure:
-      return 'hPa';
-    case IMDCompareParameter.windSpeed:
-      return 'm/s';
-    case IMDCompareParameter.windDirection:
-      return '°';
-  }
-}
-
-/// =======================
-/// MATCHED DATA POINT
-/// =======================
-class MatchedDataPoint {
-  final DateTime timestamp;
-  final Map<String, WeatherData> deviceData;
-
-  MatchedDataPoint({
-    required this.timestamp,
-    required this.deviceData,
-  });
-}
-
-/// =======================
-/// DEVICE DATA MODEL
-/// =======================
-class DeviceData {
-  final int deviceId;
-  final SensorType sensorType;
-  final List<WeatherData> data;
-  final Color color;
-
-  DeviceData({
-    required this.deviceId,
-    required this.sensorType,
-    required this.data,
-    required this.color,
-  });
-
-  String get key => '${sensorTypeLabel(sensorType)}_$deviceId';
-  String get label => '${sensorTypeLabel(sensorType)} Device $deviceId';
-}
-
-/// =======================
-/// PARAMETERS
-/// =======================
 enum WeatherParameter {
   temperature,
   humidity,
   pressure,
   windSpeed,
   rainfall,
-  windDirection,
+  windDirection
 }
 
 String parameterLabel(WeatherParameter p) {
@@ -253,106 +177,86 @@ double getParameterValue(WeatherData d, WeatherParameter p) {
   }
 }
 
+enum IMDCompareParameter {
+  temperature,
+  humidity,
+  pressure,
+  windSpeed,
+  windDirection
+}
+
+String imdParamLabel(IMDCompareParameter p) {
+  switch (p) {
+    case IMDCompareParameter.temperature:
+      return 'Temperature (°C)';
+    case IMDCompareParameter.humidity:
+      return 'Humidity (%)';
+    case IMDCompareParameter.pressure:
+      return 'Pressure (hPa)';
+    case IMDCompareParameter.windSpeed:
+      return 'Wind Speed (m/s)';
+    case IMDCompareParameter.windDirection:
+      return 'Wind Direction (°)';
+  }
+}
+
+String imdParamUnit(IMDCompareParameter p) {
+  switch (p) {
+    case IMDCompareParameter.temperature:
+      return '°C';
+    case IMDCompareParameter.humidity:
+      return '%';
+    case IMDCompareParameter.pressure:
+      return 'hPa';
+    case IMDCompareParameter.windSpeed:
+      return 'm/s';
+    case IMDCompareParameter.windDirection:
+      return '°';
+  }
+}
+
 String degreesToDirection(double degrees) {
-  double normalized = degrees % 360;
-  if (normalized < 0) normalized += 360;
-  if (normalized >= 348.75 || normalized < 11.25) return 'N';
-  if (normalized >= 11.25 && normalized < 33.75) return 'NNE';
-  if (normalized >= 33.75 && normalized < 56.25) return 'NE';
-  if (normalized >= 56.25 && normalized < 78.75) return 'ENE';
-  if (normalized >= 78.75 && normalized < 101.25) return 'E';
-  if (normalized >= 101.25 && normalized < 123.75) return 'ESE';
-  if (normalized >= 123.75 && normalized < 146.25) return 'SE';
-  if (normalized >= 146.25 && normalized < 168.75) return 'SSE';
-  if (normalized >= 168.75 && normalized < 191.25) return 'S';
-  if (normalized >= 191.25 && normalized < 213.75) return 'SSW';
-  if (normalized >= 213.75 && normalized < 236.25) return 'SW';
-  if (normalized >= 236.25 && normalized < 258.75) return 'WSW';
-  if (normalized >= 258.75 && normalized < 281.25) return 'W';
-  if (normalized >= 281.25 && normalized < 303.75) return 'WNW';
-  if (normalized >= 303.75 && normalized < 326.25) return 'NW';
+  double n = degrees % 360;
+  if (n < 0) n += 360;
+  if (n >= 348.75 || n < 11.25) return 'N';
+  if (n < 33.75) return 'NNE';
+  if (n < 56.25) return 'NE';
+  if (n < 78.75) return 'ENE';
+  if (n < 101.25) return 'E';
+  if (n < 123.75) return 'ESE';
+  if (n < 146.25) return 'SE';
+  if (n < 168.75) return 'SSE';
+  if (n < 191.25) return 'S';
+  if (n < 213.75) return 'SSW';
+  if (n < 236.25) return 'SW';
+  if (n < 258.75) return 'WSW';
+  if (n < 281.25) return 'W';
+  if (n < 303.75) return 'WNW';
+  if (n < 326.25) return 'NW';
   return 'NNW';
 }
 
 String getWindArrow(double degrees) {
-  double normalized = degrees % 360;
-  if (normalized < 0) normalized += 360;
-  if (normalized >= 348.75 || normalized < 11.25) return '↓';
-  if (normalized >= 11.25 && normalized < 56.25) return '↙';
-  if (normalized >= 56.25 && normalized < 78.75) return '↙';
-  if (normalized >= 78.75 && normalized < 101.25) return '←';
-  if (normalized >= 101.25 && normalized < 146.25) return '↖';
-  if (normalized >= 146.25 && normalized < 168.75) return '↖';
-  if (normalized >= 168.75 && normalized < 191.25) return '↑';
-  if (normalized >= 191.25 && normalized < 236.25) return '↗';
-  if (normalized >= 236.25 && normalized < 258.75) return '↗';
-  if (normalized >= 258.75 && normalized < 281.25) return '→';
-  if (normalized >= 281.25 && normalized < 326.25) return '↘';
+  double n = degrees % 360;
+  if (n < 0) n += 360;
+  if (n >= 348.75 || n < 11.25) return '↓';
+  if (n < 56.25) return '↙';
+  if (n < 78.75) return '↙';
+  if (n < 101.25) return '←';
+  if (n < 146.25) return '↖';
+  if (n < 168.75) return '↖';
+  if (n < 191.25) return '↑';
+  if (n < 236.25) return '↗';
+  if (n < 258.75) return '↗';
+  if (n < 281.25) return '→';
+  if (n < 326.25) return '↘';
   return '↘';
 }
 
-/// =======================
-/// TIMESTAMP MATCHER
-/// =======================
-class TimestampMatcher {
-  static DateTime _bucket(DateTime dt, {int bucketMinutes = 5}) {
-    final minuteBucket = (dt.minute ~/ bucketMinutes) * bucketMinutes;
-    return DateTime(dt.year, dt.month, dt.day, dt.hour, minuteBucket, 0);
-  }
+// ════════════════════════════════════════════════════════════
+//  SENSOR ENTRY
+// ════════════════════════════════════════════════════════════
 
-  static List<MatchedDataPoint> matchTimestamps(List<DeviceData> devicesData) {
-    if (devicesData.isEmpty) return [];
-    final Map<DateTime, Map<String, WeatherData>> bucketMap = {};
-    for (final device in devicesData) {
-      for (final data in device.data) {
-        final bucket = _bucket(data.timeStamp);
-        bucketMap.putIfAbsent(bucket, () => {});
-        if (!bucketMap[bucket]!.containsKey(device.key)) {
-          bucketMap[bucket]![device.key] = data;
-        }
-      }
-    }
-    final int requiredCount = devicesData.length;
-    final List<MatchedDataPoint> matchedPoints = [];
-    final sortedBuckets = bucketMap.keys.toList()..sort();
-    for (final bucket in sortedBuckets) {
-      final deviceMap = bucketMap[bucket]!;
-      if (deviceMap.length >= requiredCount) {
-        matchedPoints
-            .add(MatchedDataPoint(timestamp: bucket, deviceData: deviceMap));
-      }
-    }
-    return matchedPoints;
-  }
-}
-
-/// =======================
-/// COLOR PALETTE
-/// =======================
-class ColorPalette {
-  static const List<Color> chartColors = [
-    Colors.blue,
-    Colors.orange,
-    Colors.green,
-    Colors.red,
-    Colors.purple,
-    Colors.teal,
-    Colors.pink,
-    Colors.indigo,
-    Colors.amber,
-    Colors.cyan,
-    Colors.lime,
-    Colors.deepOrange,
-    Colors.lightBlue,
-    Colors.lightGreen,
-    Colors.deepPurple,
-  ];
-  static Color getColor(int index) => chartColors[index % chartColors.length];
-}
-
-/// =======================
-/// SENSOR ENTRY
-/// =======================
 class SensorEntry {
   final int deviceId;
   final SensorType sensorType;
@@ -372,9 +276,96 @@ class SensorEntry {
   int get hashCode => Object.hash(deviceId, sensorType);
 }
 
-/// =======================
-/// API BUILDER — chart data
-/// =======================
+// ════════════════════════════════════════════════════════════
+//  DEVICE DATA
+// ════════════════════════════════════════════════════════════
+
+class DeviceData {
+  final int deviceId;
+  final SensorType sensorType;
+  final List<WeatherData> data;
+  final Color color;
+
+  DeviceData(
+      {required this.deviceId,
+      required this.sensorType,
+      required this.data,
+      required this.color});
+
+  String get key => '${sensorTypeLabel(sensorType)}_$deviceId';
+  String get label => '${sensorTypeLabel(sensorType)} Device $deviceId';
+}
+
+// ════════════════════════════════════════════════════════════
+//  MATCHED DATA POINT
+// ════════════════════════════════════════════════════════════
+
+class MatchedDataPoint {
+  final DateTime timestamp;
+  final Map<String, WeatherData> deviceData;
+  MatchedDataPoint({required this.timestamp, required this.deviceData});
+}
+
+// ════════════════════════════════════════════════════════════
+//  TIMESTAMP MATCHER
+// ════════════════════════════════════════════════════════════
+
+class TimestampMatcher {
+  static DateTime _bucket(DateTime dt, {int bucketMinutes = 5}) {
+    final m = (dt.minute ~/ bucketMinutes) * bucketMinutes;
+    return DateTime(dt.year, dt.month, dt.day, dt.hour, m, 0);
+  }
+
+  static List<MatchedDataPoint> matchTimestamps(List<DeviceData> devicesData) {
+    if (devicesData.isEmpty) return [];
+    final Map<DateTime, Map<String, WeatherData>> bucketMap = {};
+    for (final device in devicesData) {
+      for (final data in device.data) {
+        final bucket = _bucket(data.timeStamp);
+        bucketMap.putIfAbsent(bucket, () => {});
+        if (!bucketMap[bucket]!.containsKey(device.key)) {
+          bucketMap[bucket]![device.key] = data;
+        }
+      }
+    }
+    final int required = devicesData.length;
+    final List<MatchedDataPoint> result = [];
+    final sorted = bucketMap.keys.toList()..sort();
+    for (final b in sorted) {
+      if (bucketMap[b]!.length >= required) {
+        result.add(MatchedDataPoint(timestamp: b, deviceData: bucketMap[b]!));
+      }
+    }
+    return result;
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  COLOR PALETTE
+// ════════════════════════════════════════════════════════════
+
+class ColorPalette {
+  static const List<Color> chartColors = [
+    Color(0xFF2563EB),
+    Color(0xFFEA580C),
+    Color(0xFF16A34A),
+    Color(0xFFDC2626),
+    Color(0xFF9333EA),
+    Color(0xFF0D9488),
+    Color(0xFFDB2777),
+    Color(0xFF4F46E5),
+    Color(0xFFD97706),
+    Color(0xFF0891B2),
+    Color(0xFF65A30D),
+    Color(0xFFEA580C),
+  ];
+  static Color getColor(int index) => chartColors[index % chartColors.length];
+}
+
+// ════════════════════════════════════════════════════════════
+//  API BUILDERS
+// ════════════════════════════════════════════════════════════
+
 String buildApiUrl({
   required int deviceId,
   required SensorType sensorType,
@@ -402,9 +393,6 @@ String buildApiUrl({
   }
 }
 
-/// =======================
-/// API BUILDER — CSV export
-/// =======================
 String buildDownloadApiUrl({
   required int deviceId,
   required SensorType sensorType,
@@ -427,33 +415,27 @@ String buildDownloadApiUrl({
   }
 }
 
-/// =======================
-/// RAW CSV PARSER
-/// =======================
+// ════════════════════════════════════════════════════════════
+//  CSV PARSER
+// ════════════════════════════════════════════════════════════
+
 class _RawCsvData {
   final Map<String, Map<String, String>> rows;
   final List<String> columns;
-
   _RawCsvData({required this.rows, required this.columns});
 }
 
 _RawCsvData _parseSensorCsv(String raw) {
   final lines = raw.replaceAll('\r\n', '\n').replaceAll('\r', '\n').split('\n');
-
-  while (lines.isNotEmpty && lines.last.trim().isEmpty) {
-    lines.removeLast();
-  }
-
+  while (lines.isNotEmpty && lines.last.trim().isEmpty) lines.removeLast();
   if (lines.isEmpty) return _RawCsvData(rows: {}, columns: []);
 
   final headers = _splitCsvLine(lines[0]);
-
   final tsIndex = headers.indexWhere((h) {
     final l = h.trim().toLowerCase();
     return l.contains('timestamp') || l == 'time' || l == 'datetime';
   });
   final effectiveTsIndex = tsIndex >= 0 ? tsIndex : 0;
-
   final dataColumns = <String>[];
   for (int i = 0; i < headers.length; i++) {
     if (i != effectiveTsIndex) dataColumns.add(headers[i].trim());
@@ -465,17 +447,14 @@ _RawCsvData _parseSensorCsv(String raw) {
     if (line.isEmpty) continue;
     final cells = _splitCsvLine(line);
     if (cells.length <= effectiveTsIndex) continue;
-
     final ts = cells[effectiveTsIndex].trim();
     final rowMap = <String, String>{};
     for (int ci = 0; ci < headers.length; ci++) {
       if (ci == effectiveTsIndex) continue;
-      final colName = headers[ci].trim();
-      rowMap[colName] = ci < cells.length ? cells[ci].trim() : '';
+      rowMap[headers[ci].trim()] = ci < cells.length ? cells[ci].trim() : '';
     }
     rows[ts] = rowMap;
   }
-
   return _RawCsvData(rows: rows, columns: dataColumns);
 }
 
@@ -504,18 +483,15 @@ List<String> _splitCsvLine(String line) {
 }
 
 // ════════════════════════════════════════════════════════════
-//  IMD ↔ SW007 COMPARISON SECTION — standalone StatefulWidget
+//  IMD BUCKET HELPER
 // ════════════════════════════════════════════════════════════
 
-/// Buckets SW007 data to 15-min intervals (to match IMD cadence).
 WeatherData? _bucketSW15(List<WeatherData> raw, DateTime bucket) {
-  // Collect all raw points in [bucket, bucket+15min)
   final window = raw.where((d) {
     final diff = d.timeStamp.difference(bucket).inMinutes;
     return diff >= 0 && diff < 15;
   }).toList();
   if (window.isEmpty) return null;
-  // Average all fields in the window
   double avg(double Function(WeatherData) f) =>
       window.map(f).reduce((a, b) => a + b) / window.length;
   return WeatherData(
@@ -529,201 +505,771 @@ WeatherData? _bucketSW15(List<WeatherData> raw, DateTime bucket) {
   );
 }
 
-class IMDComparisonSection extends StatefulWidget {
-  const IMDComparisonSection({Key? key}) : super(key: key);
+// ════════════════════════════════════════════════════════════
+//  CUSTOM GESTURE RECOGNIZER
+// ════════════════════════════════════════════════════════════
 
+class _PanZoomGestureRecognizer extends ScaleGestureRecognizer {
   @override
-  State<IMDComparisonSection> createState() => _IMDComparisonSectionState();
+  void rejectGesture(int pointer) => acceptGesture(pointer);
 }
 
-class _IMDComparisonSectionState extends State<IMDComparisonSection> {
-  // ── state ──────────────────────────────────────────────────────────────────
-  DateTime _startDate = DateTime.now();
-  DateTime _endDate = DateTime.now();
+// ════════════════════════════════════════════════════════════
+//  DESIGN TOKENS
+// ════════════════════════════════════════════════════════════
 
-  List<IMDData> _imdData = [];
+const _kBg = Color(0xFFF5F6FA);
+const _kCardBg = Colors.white;
+const _kPrimary = Color(0xFF4F46E5);
+const _kPrimaryLight = Color(0xFFEEF2FF);
+const _kBorder = Color(0xFFE5E7EB);
+const _kTextPrimary = Color(0xFF111827);
+const _kTextSecondary = Color(0xFF6B7280);
+const _kTextTertiary = Color(0xFF9CA3AF);
+const _kImdColor = Color(0xFF1565C0);
 
-  List<SensorEntry> _selectedSensors = [
-    SensorEntry(deviceId: 7, sensorType: SensorType.sw)
-  ];
-  final TextEditingController _newDeviceController = TextEditingController();
-  SensorType _addSensorType = SensorType.sw;
+const _kRadius = BorderRadius.all(Radius.circular(12));
+const _kRadiusSm = BorderRadius.all(Radius.circular(8));
 
-  // We map the sensor key to its data
-  Map<String, List<WeatherData>> _sensorRawData = {};
-  Map<String, List<WeatherData>> _sensorBucketedData = {};
+// ════════════════════════════════════════════════════════════
+//  SHARED WIDGETS
+// ════════════════════════════════════════════════════════════
 
-  bool _loading = false;
-  bool _csvLoading = false;
-  String? _error;
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel(this.text);
 
-  List<IMDCompareParameter> _selectedParams = [IMDCompareParameter.temperature];
+  @override
+  Widget build(BuildContext context) => Text(
+        text.toUpperCase(),
+        style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: _kTextTertiary,
+            letterSpacing: 0.8),
+      );
+}
 
-  // zoom / pan per parameter
-  final Map<IMDCompareParameter, double> _zoom = {};
-  final Map<IMDCompareParameter, double> _pan = {};
-  final Map<IMDCompareParameter, double> _base = {};
+class _AppCard extends StatelessWidget {
+  final Widget child;
+  final EdgeInsets? padding;
+  const _AppCard({required this.child, this.padding});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        decoration: BoxDecoration(
+          color: _kCardBg,
+          borderRadius: _kRadius,
+          border: Border.all(color: _kBorder, width: 0.5),
+        ),
+        padding: padding ?? const EdgeInsets.all(20),
+        child: child,
+      );
+}
+
+class _MetricCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+  const _MetricCard(
+      {required this.label, required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.07),
+          borderRadius: _kRadiusSm,
+          border: Border.all(color: color.withOpacity(0.2), width: 0.5),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+                style: const TextStyle(fontSize: 10, color: _kTextTertiary)),
+            const SizedBox(height: 4),
+            Text(value,
+                style: TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w600, color: color)),
+          ],
+        ),
+      );
+}
+
+class _SensorChip extends StatelessWidget {
+  final SensorEntry sensor;
+  final Color color;
+  final VoidCallback onRemove;
+  const _SensorChip(
+      {required this.sensor, required this.color, required this.onRemove});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                  color: color, borderRadius: BorderRadius.circular(4)),
+              child: Text(sensorTypeLabel(sensor.sensorType),
+                  style: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white)),
+            ),
+            const SizedBox(width: 6),
+            Text(sensor.label,
+                style: TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w500, color: color)),
+            const SizedBox(width: 4),
+            GestureDetector(
+              onTap: onRemove,
+              child: Icon(Icons.close, size: 14, color: color.withOpacity(0.7)),
+            ),
+          ],
+        ),
+      );
+}
+
+Widget _legendDot(String label, Color color) => Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 5),
+        Text(label,
+            style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: _kTextSecondary)),
+      ],
+    );
+
+Widget _sectionDivider(String label) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Row(
+        children: [
+          const Expanded(child: Divider(color: _kBorder, thickness: 0.5)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Text(label,
+                style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: _kTextTertiary,
+                    letterSpacing: 0.4)),
+          ),
+          const Expanded(child: Divider(color: _kBorder, thickness: 0.5)),
+        ],
+      ),
+    );
+
+// ════════════════════════════════════════════════════════════
+//  SENSOR SELECTOR WIDGET (reusable)
+// ════════════════════════════════════════════════════════════
+
+class _SensorSelectorWidget extends StatefulWidget {
+  final List<SensorEntry> sensors;
+  final void Function(SensorEntry) onAdd;
+  final void Function(SensorEntry) onRemove;
+
+  const _SensorSelectorWidget({
+    required this.sensors,
+    required this.onAdd,
+    required this.onRemove,
+  });
+
+  @override
+  State<_SensorSelectorWidget> createState() => _SensorSelectorWidgetState();
+}
+
+class _SensorSelectorWidgetState extends State<_SensorSelectorWidget> {
+  SensorType _addType = SensorType.cp;
+  final _controller = TextEditingController();
+
+  void _add() {
+    final id = int.tryParse(_controller.text);
+    if (id == null) return;
+    widget.onAdd(SensorEntry(deviceId: id, sensorType: _addType));
+    _controller.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionLabel('Sensors'),
+        const SizedBox(height: 10),
+        // Existing sensor chips
+        if (widget.sensors.isNotEmpty)
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: widget.sensors
+                .asMap()
+                .entries
+                .map((e) => _SensorChip(
+                      sensor: e.value,
+                      color: ColorPalette.getColor(e.key),
+                      onRemove: () => widget.onRemove(e.value),
+                    ))
+                .toList(),
+          ),
+        const SizedBox(height: 12),
+        // Add row
+        Row(
+          children: [
+            // Type toggle
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: _kBorder),
+                borderRadius: _kRadiusSm,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: SensorType.values.map((type) {
+                  final selected = _addType == type;
+                  return GestureDetector(
+                    onTap: () => setState(() => _addType = type),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: selected ? _kPrimary : Colors.transparent,
+                        borderRadius: _kRadiusSm,
+                      ),
+                      child: Text(
+                        sensorTypeLabel(type),
+                        style: TextStyle(
+                          color: selected ? Colors.white : _kTextSecondary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: 'Device ID',
+                  hintStyle:
+                      const TextStyle(fontSize: 13, color: _kTextTertiary),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: _kRadiusSm,
+                    borderSide: const BorderSide(color: _kBorder, width: 0.5),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: _kRadiusSm,
+                    borderSide: const BorderSide(color: _kPrimary),
+                  ),
+                ),
+                onSubmitted: (_) => _add(),
+              ),
+            ),
+            const SizedBox(width: 10),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: _kPrimary,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: _kRadiusSm),
+              ),
+              onPressed: _add,
+              icon: const Icon(Icons.add, size: 16),
+              label: const Text('Add', style: TextStyle(fontSize: 13)),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  DATE RANGE SELECTOR WIDGET (reusable)
+// ════════════════════════════════════════════════════════════
+
+class _DateRangeSelector extends StatelessWidget {
+  final DateTime startDate;
+  final DateTime endDate;
+  final VoidCallback onPickStart;
+  final VoidCallback onPickEnd;
+
+  const _DateRangeSelector({
+    required this.startDate,
+    required this.endDate,
+    required this.onPickStart,
+    required this.onPickEnd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionLabel('Date range'),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(child: _dateTile('Start', startDate, onPickStart)),
+            const SizedBox(width: 10),
+            Expanded(child: _dateTile('End', endDate, onPickEnd)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _dateTile(String label, DateTime date, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: _kRadiusSm,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          border: Border.all(color: _kBorder, width: 0.5),
+          borderRadius: _kRadiusSm,
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.calendar_today_outlined,
+                size: 15, color: _kTextTertiary),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style:
+                        const TextStyle(fontSize: 10, color: _kTextTertiary)),
+                const SizedBox(height: 1),
+                Text(DateFormat('dd MMM yyyy').format(date),
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: _kTextPrimary)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  CHART WIDGET (reusable)
+// ════════════════════════════════════════════════════════════
+
+class _ChartWidget extends StatefulWidget {
+  final String title;
+  final List<LineChartBarData> lineBars;
+  final List<({String label, Color color})> legend;
+  final DateTime globalMin;
+  final double totalMinutes;
+  final Widget Function(List<LineTooltipItem?> Function(List<LineBarSpot>))?
+      tooltipBuilder;
+  final List<LineTooltipItem?> Function(List<LineBarSpot>) getTooltipItems;
+
+  const _ChartWidget({
+    required this.title,
+    required this.lineBars,
+    required this.legend,
+    required this.globalMin,
+    required this.totalMinutes,
+    required this.getTooltipItems,
+    this.tooltipBuilder,
+  });
+
+  @override
+  State<_ChartWidget> createState() => _ChartWidgetState();
+}
+
+class _ChartWidgetState extends State<_ChartWidget> {
+  double _zoom = 1.0;
+  double _pan = 0.0;
+  double _baseZoom = 1.0;
 
   static const double _minZoom = 1.0;
   static const double _maxZoom = 10.0;
 
-  DateTime? _globalMin;
-  double _totalMinutes = 0.0;
+  void _resetZoom() => setState(() {
+        _zoom = 1.0;
+        _pan = 0.0;
+        _baseZoom = 1.0;
+      });
 
-  // IMD station ID (hard-coded; could be made configurable)
-  static const String _imdStationId = 'CGDAC000';
+  @override
+  Widget build(BuildContext context) {
+    final total = widget.totalMinutes < 1.0 ? 1.0 : widget.totalMinutes;
+    final visible = total / _zoom;
+    final maxPan = max(0.0, total - visible);
+    final clampedPan = _pan.clamp(0.0, maxPan);
+    final minX = clampedPan;
+    final maxX = (clampedPan + visible).clamp(minX, total);
 
-  // Color assignment
-  static const Color _imdColor = Color(0xFF1565C0); // deep blue
+    double allYMin = double.infinity;
+    double allYMax = double.negativeInfinity;
+    for (final bar in widget.lineBars) {
+      for (final s in bar.spots) {
+        if (s.y < allYMin) allYMin = s.y;
+        if (s.y > allYMax) allYMax = s.y;
+      }
+    }
+    if (allYMin == double.infinity) {
+      allYMin = 0;
+      allYMax = 10;
+    }
+    if (allYMin == allYMax) {
+      allYMin -= 5;
+      allYMax += 5;
+    }
+    final pad = (allYMax - allYMin) * 0.08;
 
-  // ── helpers ────────────────────────────────────────────────────────────────
+    return _AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(widget.title,
+                  style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: _kTextPrimary)),
+              if (_zoom > 1.0)
+                GestureDetector(
+                  onTap: _resetZoom,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.zoom_out_map, size: 14, color: _kPrimary),
+                      SizedBox(width: 4),
+                      Text('Reset zoom',
+                          style: TextStyle(fontSize: 12, color: _kPrimary)),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 220,
+            child: RawGestureDetector(
+              gestures: {
+                _PanZoomGestureRecognizer: GestureRecognizerFactoryWithHandlers<
+                    _PanZoomGestureRecognizer>(
+                  () => _PanZoomGestureRecognizer(),
+                  (instance) {
+                    instance
+                      ..onStart = (_) {
+                        _baseZoom = _zoom;
+                      }
+                      ..onUpdate = (details) {
+                        if (details.scale != 1.0) {
+                          setState(() => _zoom = (_baseZoom * details.scale)
+                              .clamp(_minZoom, _maxZoom));
+                        }
+                        if (details.focalPointDelta.dx.abs() > 0.1 &&
+                            _zoom > 1.0) {
+                          final sensitivity = total / (400 * _zoom);
+                          final newPan =
+                              (_pan - details.focalPointDelta.dx * sensitivity)
+                                  .clamp(0.0, max(0.0, total - visible))
+                                  .toDouble();
+                          setState(() => _pan = newPan);
+                        }
+                      }
+                      ..onEnd = (_) {
+                        _baseZoom = _zoom;
+                      };
+                  },
+                ),
+              },
+              child: Listener(
+                onPointerSignal: (signal) {
+                  if (signal is PointerScrollEvent &&
+                      HardwareKeyboard.instance.isShiftPressed) {
+                    GestureBinding.instance.pointerSignalResolver
+                        .register(signal, (event) {
+                      if (event is PointerScrollEvent) {
+                        setState(() {
+                          _zoom = event.scrollDelta.dy < 0
+                              ? min(_maxZoom, _zoom * 1.1)
+                              : max(_minZoom, _zoom / 1.1);
+                        });
+                      }
+                    });
+                  }
+                },
+                child: LineChart(
+                  LineChartData(
+                    clipData: const FlClipData.all(),
+                    minX: minX,
+                    maxX: maxX,
+                    minY: allYMin - pad,
+                    maxY: allYMax + pad,
+                    gridData: FlGridData(
+                      show: true,
+                      getDrawingHorizontalLine: (_) => FlLine(
+                          color: _kBorder.withOpacity(0.6), strokeWidth: 0.5),
+                      getDrawingVerticalLine: (_) => FlLine(
+                          color: _kBorder.withOpacity(0.6), strokeWidth: 0.5),
+                    ),
+                    borderData: FlBorderData(
+                      show: true,
+                      border: Border.all(color: _kBorder, width: 0.5),
+                    ),
+                    titlesData: FlTitlesData(
+                      topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
+                      rightTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 44,
+                          getTitlesWidget: (v, _) => Text(v.toStringAsFixed(1),
+                              style: const TextStyle(
+                                  fontSize: 9, color: _kTextTertiary)),
+                        ),
+                      ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 28,
+                          interval: max(1.0, (visible / 8).ceilToDouble()),
+                          getTitlesWidget: (v, _) {
+                            final t = widget.globalMin
+                                .add(Duration(seconds: (v * 60).round()));
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(DateFormat('HH:mm').format(t),
+                                  style: const TextStyle(
+                                      fontSize: 9, color: _kTextTertiary)),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    lineBarsData: widget.lineBars,
+                    lineTouchData: LineTouchData(
+                      touchTooltipData: LineTouchTooltipData(
+                        getTooltipColor: (_) => Colors.white,
+                        tooltipBorder:
+                            const BorderSide(color: _kBorder, width: 0.5),
+                        tooltipRoundedRadius: 8,
+                        fitInsideHorizontally: true,
+                        fitInsideVertically: true,
+                        getTooltipItems: widget.getTooltipItems,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 16,
+            runSpacing: 6,
+            alignment: WrapAlignment.center,
+            children:
+                widget.legend.map((l) => _legendDot(l.label, l.color)).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-  String _fmtDate(DateTime d) => DateFormat('d-M-yyyy').format(d);
-  String _fmtApiDate(DateTime d) => DateFormat('dd-MM-yyyy').format(d);
+// ════════════════════════════════════════════════════════════
+//  MAIN PAGE
+// ════════════════════════════════════════════════════════════
+
+class SensorComparisonPage extends StatefulWidget {
+  const SensorComparisonPage({Key? key}) : super(key: key);
+
+  @override
+  State<SensorComparisonPage> createState() => _SensorComparisonPageState();
+}
+
+class _SensorComparisonPageState extends State<SensorComparisonPage>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  bool get _isImdTab => _tabController.index == 1;
 
   void _snack(String msg) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(msg),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: _kRadiusSm),
+      ));
 
-  Future<void> _pickDate(bool isStart) async {
+  // ── Sensor-vs-Sensor state ────────────────────────────────────────────────
+  List<SensorEntry> _sensors = [
+    SensorEntry(deviceId: 1, sensorType: SensorType.cp),
+    SensorEntry(deviceId: 2, sensorType: SensorType.cp),
+  ];
+  DateTime _startDate = DateTime.now();
+  DateTime _endDate = DateTime.now();
+  List<WeatherParameter> _selectedParams = [WeatherParameter.temperature];
+
+  List<DeviceData> _devicesData = [];
+  List<MatchedDataPoint> _matched = [];
+  bool _loading = false;
+  bool _csvLoading = false;
+  String? _error;
+
+  DateTime? _globalMinTime;
+  double _totalMinutes = 0.0;
+
+  // ── IMD state ─────────────────────────────────────────────────────────────
+  List<SensorEntry> _imdSensors = [
+    SensorEntry(deviceId: 7, sensorType: SensorType.sw)
+  ];
+  DateTime _imdStart = DateTime.now();
+  DateTime _imdEnd = DateTime.now();
+  List<IMDCompareParameter> _imdParams = [IMDCompareParameter.temperature];
+  List<IMDData> _imdData = [];
+  Map<String, List<WeatherData>> _imdRawData = {};
+  Map<String, List<WeatherData>> _imdBucketedData = {};
+  bool _imdLoading = false;
+  bool _imdCsvLoading = false;
+  String? _imdError;
+  DateTime? _imdGlobalMin;
+  double _imdTotalMinutes = 0.0;
+  static const String _imdStationId = 'CGDAC000';
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  String _fmtApi(DateTime d) => DateFormat('dd-MM-yyyy').format(d);
+  String _fmtImdApi(DateTime d) => DateFormat('d-M-yyyy').format(d);
+
+  Future<void> _pickDate(bool isStart, {bool imd = false}) async {
+    final current = imd
+        ? (isStart ? _imdStart : _imdEnd)
+        : (isStart ? _startDate : _endDate);
     final picked = await showDatePicker(
       context: context,
-      initialDate: isStart ? _startDate : _endDate,
+      initialDate: current,
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(primary: _kPrimary),
+        ),
+        child: child!,
+      ),
     );
-    if (picked != null) {
-      setState(() {
+    if (picked == null) return;
+    setState(() {
+      if (imd) {
+        if (isStart)
+          _imdStart = picked;
+        else
+          _imdEnd = picked;
+      } else {
         if (isStart)
           _startDate = picked;
         else
           _endDate = picked;
-      });
-    }
-  }
-
-  void _addSensor() {
-    final deviceId = int.tryParse(_newDeviceController.text);
-    if (deviceId == null) {
-      _snack('Please enter a valid device ID');
-      return;
-    }
-    final entry = SensorEntry(deviceId: deviceId, sensorType: _addSensorType);
-    if (_selectedSensors.contains(entry)) {
-      _snack('${entry.label} already added');
-      return;
-    }
-    setState(() {
-      _selectedSensors.add(entry);
-      _newDeviceController.clear();
+      }
     });
   }
 
-  void _removeSensor(SensorEntry entry) {
-    if (_selectedSensors.length <= 1) {
-      _snack('At least one sensor is required');
+  // ── Sensor-vs-Sensor fetch ────────────────────────────────────────────────
+
+  Future<void> _fetchSensorData() async {
+    if (_sensors.isEmpty) {
+      _snack('Add at least one sensor');
       return;
     }
-    setState(() {
-      _selectedSensors.remove(entry);
-      _sensorRawData.remove(entry.key);
-      _sensorBucketedData.remove(entry.key);
-    });
-  }
-
-  // ── fetch ──────────────────────────────────────────────────────────────────
-
-  Future<void> _fetchData() async {
-    if (_selectedSensors.isEmpty) {
-      _snack('Please add at least one sensor');
-      return;
-    }
-
     setState(() {
       _loading = true;
       _error = null;
-      _zoom.clear();
-      _pan.clear();
-      _base.clear();
     });
-
     try {
-      // ── IMD ────────────────────────────────────────────────────────────────
-      final imdUrl =
-          'https://914ed7hixg.execute-api.us-east-1.amazonaws.com/default/IMD_AWS-ARG_Data_API'
-          '?ID=$_imdStationId&startdate=${_fmtDate(_startDate)}&enddate=${_fmtDate(_endDate)}';
-
-      final imdResp = await http.get(Uri.parse(imdUrl));
-      if (imdResp.statusCode != 200) {
-        throw Exception('IMD API error (HTTP ${imdResp.statusCode})');
-      }
-
-      final imdBody = json.decode(imdResp.body);
-      List<dynamic> imdItems;
-      if (imdBody is List) {
-        imdItems = imdBody;
-      } else if (imdBody is Map && imdBody.containsKey('items')) {
-        imdItems = imdBody['items'] as List;
-      } else {
-        imdItems = [imdBody];
-      }
-      final imdData = imdItems
-          .map((e) => IMDData.fromJson(e as Map<String, dynamic>))
-          .toList();
-
-      // ── Other Sensors ──────────────────────────────────────────────────────
-      Map<String, List<WeatherData>> rawDataMap = {};
-      Map<String, List<WeatherData>> bucketedDataMap = {};
-
-      for (final sensor in _selectedSensors) {
-        final sensorUrl = buildApiUrl(
-          deviceId: sensor.deviceId,
-          sensorType: sensor.sensorType,
-          startDate: _fmtApiDate(_startDate),
-          endDate: _fmtApiDate(_endDate),
-        );
-
-        final resp = await http.get(Uri.parse(sensorUrl));
-        if (resp.statusCode != 200) {
-          throw Exception(
-              '${sensor.label} API error (HTTP ${resp.statusCode})');
-        }
+      final start = _fmtApi(_startDate);
+      final end = _fmtApi(_endDate);
+      final List<DeviceData> fetched = [];
+      for (int i = 0; i < _sensors.length; i++) {
+        final s = _sensors[i];
+        final url = buildApiUrl(
+            deviceId: s.deviceId,
+            sensorType: s.sensorType,
+            startDate: start,
+            endDate: end);
+        final resp = await http.get(Uri.parse(url));
+        if (resp.statusCode != 200)
+          throw Exception('${s.label} failed (HTTP ${resp.statusCode})');
         final body = json.decode(resp.body);
         final items = body['items'] as List;
-        final rawList = items
-            .map((e) => WeatherData.fromJson(e as Map<String, dynamic>))
-            .toList();
-        rawList.sort((a, b) => a.timeStamp.compareTo(b.timeStamp));
-        rawDataMap[sensor.key] = rawList;
-
-        // Build 15-min bucketed data matching IMD timestamps
-        final List<WeatherData> bucketedList = [];
-        for (final imd in imdData) {
-          final bucket = DateTime(imd.timeStamp.year, imd.timeStamp.month,
-              imd.timeStamp.day, imd.timeStamp.hour, imd.timeStamp.minute, 0);
-          final bw = _bucketSW15(rawList, bucket);
-          if (bw != null) bucketedList.add(bw);
+        fetched.add(DeviceData(
+          deviceId: s.deviceId,
+          sensorType: s.sensorType,
+          data: items.map((e) => WeatherData.fromJson(e)).toList(),
+          color: ColorPalette.getColor(i),
+        ));
+      }
+      final matched = TimestampMatcher.matchTimestamps(fetched);
+      DateTime? earliest, latest;
+      for (final d in fetched) {
+        for (final w in d.data) {
+          if (earliest == null || w.timeStamp.isBefore(earliest))
+            earliest = w.timeStamp;
+          if (latest == null || w.timeStamp.isAfter(latest))
+            latest = w.timeStamp;
         }
-        bucketedDataMap[sensor.key] = bucketedList;
       }
-
-      // ── Global time range ─────────────────────────────────────────────
-      DateTime? earliest;
-      DateTime? latest;
-      for (final d in imdData) {
-        if (earliest == null || d.timeStamp.isBefore(earliest))
-          earliest = d.timeStamp;
-        if (latest == null || d.timeStamp.isAfter(latest)) latest = d.timeStamp;
-      }
-
       setState(() {
-        _imdData = imdData;
-        _sensorRawData = rawDataMap;
-        _sensorBucketedData = bucketedDataMap;
-        _loading = false;
-        _globalMin = earliest;
+        _devicesData = fetched;
+        _matched = matched;
+        _globalMinTime = earliest;
         _totalMinutes = (earliest != null && latest != null)
-            ? latest.difference(earliest).inSeconds / 60.0
+            ? latest!.difference(earliest!).inSeconds / 60.0
             : 0.0;
+        _loading = false;
       });
     } catch (e) {
       setState(() {
@@ -733,100 +1279,239 @@ class _IMDComparisonSectionState extends State<IMDComparisonSection> {
     }
   }
 
-  // ── CSV download ───────────────────────────────────────────────────────────
-
-  Future<void> _downloadCsv() async {
-    if (_imdData.isEmpty) {
-      _snack('No IMD data available to download.');
+  Future<void> _downloadSensorCsv() async {
+    if (_devicesData.isEmpty) {
+      _snack('No data loaded');
       return;
     }
     setState(() => _csvLoading = true);
+    try {
+      final start = _fmtApi(_startDate);
+      final end = _fmtApi(_endDate);
+      final links = <({SensorEntry sensor, String url})>[];
 
+      for (final s in _sensors) {
+        final apiUrl = buildDownloadApiUrl(
+            deviceId: s.deviceId,
+            sensorType: s.sensorType,
+            startDate: start,
+            endDate: end);
+        final resp = await http.get(Uri.parse(apiUrl));
+        if (resp.statusCode != 200)
+          throw Exception('Download failed for ${s.label}');
+        final body = json.decode(resp.body) as Map<String, dynamic>;
+        final dlUrl = body['download_url'] as String?;
+        if (dlUrl == null || dlUrl.isEmpty)
+          throw Exception('No download_url for ${s.label}');
+        links.add((sensor: s, url: dlUrl));
+      }
+
+      final csvs = <({SensorEntry sensor, _RawCsvData csv})>[];
+      for (final l in links) {
+        final s3 = await http.get(Uri.parse(l.url));
+        if (s3.statusCode != 200)
+          throw Exception('S3 fetch failed for ${l.sensor.label}');
+        csvs.add((sensor: l.sensor, csv: _parseSensorCsv(s3.body)));
+      }
+
+      final allTs = <String>{};
+      for (final c in csvs) allTs.addAll(c.csv.rows.keys);
+      final sortedTs = allTs.toList()..sort();
+
+      final orderedCols = <String>[];
+      final seenCols = <String>{};
+      for (final c in csvs) {
+        for (final col in c.csv.columns) {
+          if (seenCols.add(col)) orderedCols.add(col);
+        }
+      }
+
+      final headers = [
+        'Timestamp',
+        ...orderedCols
+            .expand((col) => csvs.map((c) => '${col}_${c.sensor.key}'))
+      ];
+      final lines = [headers.join(',')];
+      for (final ts in sortedTs) {
+        final cells = [
+          ts,
+          ...orderedCols
+              .expand((col) => csvs.map((c) => c.csv.rows[ts]?[col] ?? ''))
+        ];
+        lines.add(cells.join(','));
+      }
+
+      final sKeys = _sensors.map((s) => s.key).join('_');
+      _triggerDownload(lines.join('\n'),
+          'comparison_${sKeys}_${DateFormat('yyyyMMdd').format(_startDate)}_${DateFormat('yyyyMMdd').format(_endDate)}.csv');
+      _snack('Downloaded ${sortedTs.length} rows');
+    } catch (e) {
+      _snack('Download failed: $e');
+    } finally {
+      setState(() => _csvLoading = false);
+    }
+  }
+
+  // ── IMD fetch ─────────────────────────────────────────────────────────────
+
+  Future<void> _fetchImdData() async {
+    if (_imdSensors.isEmpty) {
+      _snack('Add at least one sensor');
+      return;
+    }
+    setState(() {
+      _imdLoading = true;
+      _imdError = null;
+    });
+    try {
+      final imdUrl =
+          'https://914ed7hixg.execute-api.us-east-1.amazonaws.com/default/IMD_AWS-ARG_Data_API'
+          '?ID=$_imdStationId&startdate=${_fmtImdApi(_imdStart)}&enddate=${_fmtImdApi(_imdEnd)}';
+      final imdResp = await http.get(Uri.parse(imdUrl));
+      if (imdResp.statusCode != 200)
+        throw Exception('IMD API error (HTTP ${imdResp.statusCode})');
+
+      final imdBody = json.decode(imdResp.body);
+      final imdItems = imdBody is List
+          ? imdBody
+          : (imdBody is Map && imdBody.containsKey('items')
+              ? imdBody['items'] as List
+              : [imdBody]);
+      final imdData = imdItems
+          .map((e) => IMDData.fromJson(e as Map<String, dynamic>))
+          .toList();
+
+      final Map<String, List<WeatherData>> rawMap = {};
+      final Map<String, List<WeatherData>> bucketedMap = {};
+
+      for (final sensor in _imdSensors) {
+        final sUrl = buildApiUrl(
+            deviceId: sensor.deviceId,
+            sensorType: sensor.sensorType,
+            startDate: _fmtApi(_imdStart),
+            endDate: _fmtApi(_imdEnd));
+        final resp = await http.get(Uri.parse(sUrl));
+        if (resp.statusCode != 200) throw Exception('${sensor.label} failed');
+        final body = json.decode(resp.body);
+        final rawList = (body['items'] as List)
+            .map((e) => WeatherData.fromJson(e as Map<String, dynamic>))
+            .toList()
+          ..sort((a, b) => a.timeStamp.compareTo(b.timeStamp));
+        rawMap[sensor.key] = rawList;
+
+        final bucketed = <WeatherData>[];
+        for (final imd in imdData) {
+          final bucket = DateTime(imd.timeStamp.year, imd.timeStamp.month,
+              imd.timeStamp.day, imd.timeStamp.hour, imd.timeStamp.minute, 0);
+          final bw = _bucketSW15(rawList, bucket);
+          if (bw != null) bucketed.add(bw);
+        }
+        bucketedMap[sensor.key] = bucketed;
+      }
+
+      DateTime? earliest, latest;
+      for (final d in imdData) {
+        if (earliest == null || d.timeStamp.isBefore(earliest))
+          earliest = d.timeStamp;
+        if (latest == null || d.timeStamp.isAfter(latest)) latest = d.timeStamp;
+      }
+
+      setState(() {
+        _imdData = imdData;
+        _imdRawData = rawMap;
+        _imdBucketedData = bucketedMap;
+        _imdGlobalMin = earliest;
+        _imdTotalMinutes = (earliest != null && latest != null)
+            ? latest!.difference(earliest!).inSeconds / 60.0
+            : 0.0;
+        _imdLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _imdError = e.toString();
+        _imdLoading = false;
+      });
+    }
+  }
+
+  Future<void> _downloadImdCsv() async {
+    if (_imdData.isEmpty) {
+      _snack('No IMD data');
+      return;
+    }
+    setState(() => _imdCsvLoading = true);
     try {
       final headers = [
         'Timestamp',
-        'IMD_Temperature_C',
+        'IMD_Temp_C',
         'IMD_Humidity_%',
         'IMD_Pressure_hPa',
         'IMD_WindSpeed_ms',
-        'IMD_WindDirection_deg',
+        'IMD_WindDir_deg'
       ];
-
-      for (final sensor in _selectedSensors) {
+      for (final s in _imdSensors) {
         headers.addAll([
-          '${sensor.key}_Temperature_C',
-          '${sensor.key}_Humidity_%',
-          '${sensor.key}_Pressure_hPa',
-          '${sensor.key}_WindSpeed_ms',
-          '${sensor.key}_WindDirection_deg',
-          'Diff_${sensor.key}_Temperature_C',
-          'Diff_${sensor.key}_Humidity_%',
-          'Diff_${sensor.key}_Pressure_hPa',
-          'Diff_${sensor.key}_WindSpeed_ms',
-          'Diff_${sensor.key}_WindDirection_deg',
+          '${s.key}_Temp_C',
+          '${s.key}_Humidity_%',
+          '${s.key}_Pressure_hPa',
+          '${s.key}_WindSpeed_ms',
+          '${s.key}_WindDir_deg',
+          'Diff_${s.key}_Temp',
+          'Diff_${s.key}_Humidity',
+          'Diff_${s.key}_Pressure',
+          'Diff_${s.key}_WindSpeed',
+          'Diff_${s.key}_WindDir',
         ]);
       }
-
-      // Pre-map bucketed data for quick lookup
-      final Map<String, Map<String, WeatherData>> bucketedMap = {};
-      for (final sensor in _selectedSensors) {
-        bucketedMap[sensor.key] = {
-          for (final d in _sensorBucketedData[sensor.key] ?? [])
-            DateFormat('yyyy-MM-dd HH:mm:ss').format(d.timeStamp): d
-        };
-      }
-
+      final bucketedMaps = {
+        for (final s in _imdSensors)
+          s.key: {
+            for (final d in _imdBucketedData[s.key] ?? [])
+              DateFormat('yyyy-MM-dd HH:mm:ss').format(d.timeStamp): d
+          }
+      };
+      String fmt(double? v) => v?.toStringAsFixed(2) ?? '';
+      String diff(double? a, double? b) =>
+          (a != null && b != null) ? (a - b).abs().toStringAsFixed(2) : '';
       final lines = [headers.join(',')];
-
       for (final imd in _imdData) {
         final ts = DateFormat('yyyy-MM-dd HH:mm:ss').format(imd.timeStamp);
-
-        String fmt(double? v) => v?.toStringAsFixed(2) ?? '';
-        String diff(double? a, double? b) =>
-            (a != null && b != null) ? (a - b).abs().toStringAsFixed(2) : '';
-
         final row = [
           ts,
           fmt(imd.currTemp),
           fmt(imd.relativeHumidity),
           fmt(imd.mslp),
           fmt(imd.windSpeed),
-          fmt(imd.windDirection),
+          fmt(imd.windDirection)
         ];
-
-        for (final sensor in _selectedSensors) {
-          final sData = bucketedMap[sensor.key]?[ts];
+        for (final s in _imdSensors) {
+          final sd = bucketedMaps[s.key]?[ts];
           row.addAll([
-            fmt(sData?.currentTemperature),
-            fmt(sData?.currentHumidity),
-            fmt(sData?.atmPressure),
-            fmt(sData?.windSpeed),
-            fmt(sData?.windDirection),
-            diff(imd.currTemp, sData?.currentTemperature),
-            diff(imd.relativeHumidity, sData?.currentHumidity),
-            diff(imd.mslp, sData?.atmPressure),
-            diff(imd.windSpeed, sData?.windSpeed),
-            diff(imd.windDirection, sData?.windDirection),
+            fmt(sd?.currentTemperature),
+            fmt(sd?.currentHumidity),
+            fmt(sd?.atmPressure),
+            fmt(sd?.windSpeed),
+            fmt(sd?.windDirection),
+            diff(imd.currTemp, sd?.currentTemperature),
+            diff(imd.relativeHumidity, sd?.currentHumidity),
+            diff(imd.mslp, sd?.atmPressure),
+            diff(imd.windSpeed, sd?.windSpeed),
+            diff(imd.windDirection, sd?.windDirection),
           ]);
         }
-
         lines.add(row.join(','));
       }
-
-      final csvContent = lines.join('\n');
-      final startStr = DateFormat('yyyyMMdd').format(_startDate);
-      final endStr = DateFormat('yyyyMMdd').format(_endDate);
-      final fileName = 'IMD_Comparison_${startStr}_$endStr.csv';
-      _triggerBrowserDownload(csvContent, fileName);
-      _snack('✓ Downloaded $fileName  (${_imdData.length} rows)');
+      _triggerDownload(lines.join('\n'),
+          'IMD_Comparison_${DateFormat('yyyyMMdd').format(_imdStart)}_${DateFormat('yyyyMMdd').format(_imdEnd)}.csv');
+      _snack('Downloaded ${_imdData.length} rows');
     } catch (e) {
-      _snack('CSV download failed: $e');
+      _snack('Download failed: $e');
     } finally {
-      setState(() => _csvLoading = false);
+      setState(() => _imdCsvLoading = false);
     }
   }
 
-  void _triggerBrowserDownload(String content, String fileName) {
+  void _triggerDownload(String content, String fileName) {
     final bytes = utf8.encode(content);
     final blob = html.Blob([bytes], 'text/csv;charset=utf-8;');
     final url = html.Url.createObjectUrlFromBlob(blob);
@@ -840,2182 +1525,990 @@ class _IMDComparisonSectionState extends State<IMDComparisonSection> {
         const Duration(milliseconds: 200), () => html.Url.revokeObjectUrl(url));
   }
 
-  // ── chart helpers ──────────────────────────────────────────────────────────
-
-  double _zv(IMDCompareParameter p) => _zoom[p] ?? 1.0;
-  double _pv(IMDCompareParameter p) => _pan[p] ?? 0.0;
-  double _bv(IMDCompareParameter p) => _base[p] ?? 1.0;
-
-  void _resetZoom(IMDCompareParameter p) => setState(() {
-        _zoom[p] = 1.0;
-        _pan[p] = 0.0;
-        _base[p] = 1.0;
-      });
-
-  double _imdVal(IMDData d, IMDCompareParameter p) {
-    switch (p) {
-      case IMDCompareParameter.temperature:
-        return d.currTemp;
-      case IMDCompareParameter.humidity:
-        return d.relativeHumidity;
-      case IMDCompareParameter.pressure:
-        return d.mslp;
-      case IMDCompareParameter.windSpeed:
-        return d.windSpeed;
-      case IMDCompareParameter.windDirection:
-        return d.windDirection;
-    }
-  }
-
-  double _sensorVal(WeatherData d, IMDCompareParameter p) {
-    switch (p) {
-      case IMDCompareParameter.temperature:
-        return d.currentTemperature;
-      case IMDCompareParameter.humidity:
-        return d.currentHumidity;
-      case IMDCompareParameter.pressure:
-        return d.atmPressure;
-      case IMDCompareParameter.windSpeed:
-        return d.windSpeed;
-      case IMDCompareParameter.windDirection:
-        return d.windDirection;
-    }
-  }
-
-  // ── statistics ─────────────────────────────────────────────────────────────
-
-  /// Returns stats keyed by "imd", and sensor keys.
-  Map<String, Map<String, double>> _calcStats(IMDCompareParameter p) {
-    if (_imdData.isEmpty) return {};
-
-    final imdVals = _imdData.map((d) => _imdVal(d, p)).toList();
-
-    final Map<String, Map<String, double>> results = {
-      'imd': _stats(imdVals),
-    };
-
-    for (final sensor in _selectedSensors) {
-      final bucketed = _sensorBucketedData[sensor.key] ?? [];
-      final swMap = {for (final d in bucketed) _roundTs(d.timeStamp): d};
-
-      final List<double> swVals = [];
-      final List<double> diffs = [];
-      for (final imd in _imdData) {
-        final sw = swMap[_roundTs(imd.timeStamp)];
-        if (sw != null) {
-          final sv = _sensorVal(sw, p);
-          swVals.add(sv);
-          diffs.add((_imdVal(imd, p) - sv).abs());
-        }
-      }
-
-      results[sensor.key] = _stats(swVals);
-      results['diff_${sensor.key}'] = _stats(diffs);
-    }
-
-    return results;
-  }
+  // ── Statistics ────────────────────────────────────────────────────────────
 
   Map<String, double> _stats(List<double> v) {
     if (v.isEmpty) return {};
     return {
       'max': v.reduce(max),
       'min': v.reduce(min),
-      'avg': v.reduce((a, b) => a + b) / v.length,
+      'avg': v.reduce((a, b) => a + b) / v.length
     };
   }
 
-  DateTime _roundTs(DateTime dt) =>
-      DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute);
-
-  // ── UI Components ──────────────────────────────────────────────────────────
-
-  Widget _sensorTypeLegendDot(Color color) {
-    return Container(
-      width: 10,
-      height: 10,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-    );
-  }
-
-  Widget _buildSensorSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Selected Sensors to compare with IMD',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            _sensorTypeLegendDot(Colors.blue),
-            const SizedBox(width: 4),
-            const Text('CP = Campus  ', style: TextStyle(fontSize: 12)),
-            _sensorTypeLegendDot(Colors.teal),
-            const SizedBox(width: 4),
-            const Text('SW = SW  ', style: TextStyle(fontSize: 12)),
-            _sensorTypeLegendDot(Colors.deepOrange),
-            const SizedBox(width: 4),
-            const Text('WJ = WJ  ', style: TextStyle(fontSize: 12)),
-            _sensorTypeLegendDot(Colors.purple),
-            const SizedBox(width: 4),
-            const Text('WM = WM sensor', style: TextStyle(fontSize: 12)),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _selectedSensors.map((sensor) {
-            final color =
-                ColorPalette.getColor(_selectedSensors.indexOf(sensor));
-            return Chip(
-              avatar: CircleAvatar(
-                backgroundColor: Colors.white.withOpacity(0.3),
-                child: Text(
-                  sensorTypeLabel(sensor.sensorType),
-                  style: const TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white),
-                ),
-              ),
-              label: Text(sensor.label,
-                  style: const TextStyle(color: Colors.white)),
-              backgroundColor: color,
-              deleteIcon:
-                  const Icon(Icons.close, color: Colors.white, size: 18),
-              onDeleted: () => _removeSensor(sensor),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade400),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: SensorType.values.map((type) {
-                  final selected = _addSensorType == type;
-                  return GestureDetector(
-                    onTap: () => setState(() => _addSensorType = type),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color:
-                            selected ? Colors.deepPurple : Colors.transparent,
-                        borderRadius: BorderRadius.circular(7),
-                      ),
-                      child: Text(
-                        sensorTypeLabel(type),
-                        style: TextStyle(
-                          color: selected ? Colors.white : Colors.grey,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: _newDeviceController,
-                decoration: InputDecoration(
-                  hintText: 'Device ID',
-                  hintStyle: const TextStyle(fontSize: 14),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: Colors.grey.shade400),
-                  ),
-                ),
-                keyboardType: TextInputType.number,
-                onSubmitted: (_) => _addSensor(),
-              ),
-            ),
-            const SizedBox(width: 12),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
-                foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
-              ),
-              onPressed: _addSensor,
-              child: const Icon(Icons.add),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // ── build ──────────────────────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════
+  //  BUILD
+  // ════════════════════════════════════════════════════════════
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Section Header ─────────────────────────────────────────────
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1565C0).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.compare, color: Color(0xFF1565C0)),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'IMD vs Multiple Sensors Comparison',
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        'IMD Station: CGDAC000 (DAV School, Chandigarh)',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ),
-                // Legend chips
-                _legendChip('IMD', _imdColor),
-              ],
-            ),
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 16),
+    final isBusy =
+        _isImdTab ? (_imdLoading || _imdCsvLoading) : (_loading || _csvLoading);
+    final hasData = _isImdTab ? _imdData.isNotEmpty : _devicesData.isNotEmpty;
 
-            _buildSensorSelector(),
-
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 16),
-
-            // ── Controls ───────────────────────────────────────────────────
-            Wrap(
-              spacing: 16,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                // Date pickers
-                _dateBtn('Start Date', _startDate, true),
-                _dateBtn('End Date', _endDate, false),
-                // Fetch button
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.sync),
-                  label: const Text('Fetch & Compare'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1565C0),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 14),
-                  ),
-                  onPressed: _loading ? null : _fetchData,
-                ),
-                // Download CSV
-                if (_imdData.isNotEmpty)
-                  _csvLoading
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : OutlinedButton.icon(
-                          icon: const Icon(Icons.download, size: 18),
-                          label: const Text('Download CSV'),
-                          onPressed: _downloadCsv,
-                        ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // ── Parameter Chips ────────────────────────────────────────────
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: IMDCompareParameter.values.map((p) {
-                final sel = _selectedParams.contains(p);
-                return FilterChip(
-                  label: Text(imdParamLabel(p)),
-                  selected: sel,
-                  selectedColor: const Color(0xFF1565C0).withOpacity(0.25),
-                  checkmarkColor: const Color(0xFF1565C0),
-                  onSelected: (v) {
-                    setState(() {
-                      if (v) {
-                        _selectedParams.add(p);
-                      } else {
-                        if (_selectedParams.length > 1) {
-                          _selectedParams.remove(p);
-                        } else {
-                          _snack('At least one parameter must be selected');
-                        }
-                      }
-                    });
-                  },
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 16),
-
-            // ── Loading / Error ────────────────────────────────────────────
-            if (_loading)
-              const Center(
-                  child: Padding(
-                padding: EdgeInsets.all(24),
-                child: CircularProgressIndicator(),
-              )),
-            if (_error != null)
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 16),
-                padding: const EdgeInsets.all(12),
-                color: Colors.red.shade50,
-                child: Text('Error: ${_error!}',
-                    style: TextStyle(color: Colors.red.shade900)),
-              ),
-
-            // ── Charts ─────────────────────────────────────────────────────
-            if (!_loading && _imdData.isNotEmpty && _globalMin != null) ...[
-              const SizedBox(height: 8),
-              const SizedBox(height: 16),
-              ..._selectedParams.map((p) {
-                final unit = imdParamUnit(p);
-                final globalMin = _globalMin!;
-                final totalMin = _totalMinutes;
-
-                // Zoom / Pan variables
-                final double currentZoom = _zv(p);
-                final double currentPan = _pv(p);
-
-                final double visMin = max(10, totalMin / currentZoom);
-                final double currentOffset =
-                    currentPan.clamp(0.0, max(0.0, totalMin - visMin));
-
-                final double minX = currentOffset;
-                final double maxX = currentOffset + visMin;
-
-                // IMD Data Spots
-                final List<FlSpot> imdSpots = _imdData.map((d) {
-                  final x = d.timeStamp.difference(globalMin).inSeconds / 60.0;
-                  final y = _imdVal(d, p);
-                  return FlSpot(x, y);
-                }).toList();
-
-                // Other Sensors Spots
-                final Map<String, List<FlSpot>> sensorSpotsMap = {};
-                for (final sensor in _selectedSensors) {
-                  final bucketed = _sensorBucketedData[sensor.key] ?? [];
-                  sensorSpotsMap[sensor.key] = bucketed.map((d) {
-                    final x =
-                        d.timeStamp.difference(globalMin).inSeconds / 60.0;
-                    final y = _sensorVal(d, p);
-                    return FlSpot(x, y);
-                  }).toList();
-                }
-
-                // Prepare LineBarsData
-                final List<LineChartBarData> lineBars = [];
-                lineBars.add(LineChartBarData(
-                  spots: imdSpots,
-                  isCurved: true,
-                  color: _imdColor,
-                  barWidth: 3,
-                  dotData: const FlDotData(show: false),
-                ));
-
-                for (int i = 0; i < _selectedSensors.length; i++) {
-                  final sensor = _selectedSensors[i];
-                  lineBars.add(LineChartBarData(
-                    spots: sensorSpotsMap[sensor.key] ?? [],
-                    isCurved: true,
-                    color: ColorPalette.getColor(i),
-                    barWidth: 2,
-                    dotData: const FlDotData(show: false),
-                  ));
-                }
-
-                // Min / Max Y
-                double globalMinY = double.infinity;
-                double globalMaxY = double.negativeInfinity;
-                for (final s in imdSpots) {
-                  if (s.y < globalMinY) globalMinY = s.y;
-                  if (s.y > globalMaxY) globalMaxY = s.y;
-                }
-                for (final spots in sensorSpotsMap.values) {
-                  for (final s in spots) {
-                    if (s.y < globalMinY) globalMinY = s.y;
-                    if (s.y > globalMaxY) globalMaxY = s.y;
-                  }
-                }
-                if (globalMinY == double.infinity) {
-                  globalMinY = 0;
-                  globalMaxY = 10;
-                }
-                if (globalMaxY == globalMinY) {
-                  globalMinY -= 5;
-                  globalMaxY += 5;
-                }
-                final paddingY = (globalMaxY - globalMinY) * 0.1;
-                final minY = globalMinY - paddingY;
-                final maxY = globalMaxY + paddingY;
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Title + Reset Zoom
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(imdParamLabel(p),
-                            style: const TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.bold)),
-                        if (currentZoom > 1.0)
-                          TextButton.icon(
-                            icon: const Icon(Icons.zoom_out_map, size: 16),
-                            label: const Text('Reset Zoom'),
-                            onPressed: () => _resetZoom(p),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Chart
-                    SizedBox(
-                      height: 250,
-                      child: GestureDetector(
-                        onScaleStart: (details) {
-                          _base[p] = _zv(p);
-                        },
-                        onScaleUpdate: (details) {
-                          if (details.scale != 1.0) {
-                            setState(() {
-                              _zoom[p] = (_bv(p) * details.scale)
-                                  .clamp(_minZoom, _maxZoom);
-                            });
-                          }
-                          if (details.focalPointDelta.dx != 0 && _zv(p) > 1.0) {
-                            setState(() {
-                              final ppx = details.focalPointDelta.dx;
-                              final spm =
-                                  visMin / MediaQuery.of(context).size.width;
-                              _pan[p] = _pv(p) - (ppx * spm);
-                            });
-                          }
-                        },
-                        child: LineChart(
-                          LineChartData(
-                            minX: minX,
-                            maxX: maxX,
-                            minY: minY,
-                            maxY: maxY,
-                            clipData: const FlClipData.all(),
-                            gridData: FlGridData(
-                              show: true,
-                              drawVerticalLine: true,
-                              getDrawingHorizontalLine: (value) => FlLine(
-                                  color: Colors.grey.withOpacity(0.2),
-                                  strokeWidth: 1),
-                              getDrawingVerticalLine: (value) => FlLine(
-                                  color: Colors.grey.withOpacity(0.2),
-                                  strokeWidth: 1),
-                            ),
-                            titlesData: FlTitlesData(
-                              topTitles: const AxisTitles(
-                                  sideTitles: SideTitles(showTitles: false)),
-                              rightTitles: const AxisTitles(
-                                  sideTitles: SideTitles(showTitles: false)),
-                              leftTitles: AxisTitles(
-                                sideTitles: SideTitles(
-                                  showTitles: true,
-                                  reservedSize: 45,
-                                  getTitlesWidget: (v, meta) => Text(
-                                      v.toStringAsFixed(1),
-                                      style: const TextStyle(fontSize: 9)),
-                                ),
-                              ),
-                              bottomTitles: AxisTitles(
-                                sideTitles: SideTitles(
-                                  showTitles: true,
-                                  reservedSize: 30,
-                                  interval:
-                                      max(1.0, (visMin / 8).ceilToDouble()),
-                                  getTitlesWidget: (v, _) {
-                                    final t = globalMin.add(
-                                        Duration(seconds: (v * 60).round()));
-                                    return Padding(
-                                      padding: const EdgeInsets.only(top: 6),
-                                      child: Text(DateFormat('HH:mm').format(t),
-                                          style: const TextStyle(fontSize: 9)),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                            lineBarsData: lineBars,
-                            lineTouchData: LineTouchData(
-                              touchTooltipData: LineTouchTooltipData(
-                                getTooltipColor: (touchedSpot) =>
-                                    Colors.white.withOpacity(0.8),
-                                tooltipBorder: BorderSide(
-                                    color: Colors.grey.withOpacity(0.2),
-                                    width: 1),
-                                fitInsideHorizontally: true,
-                                fitInsideVertically: true,
-                                getTooltipItems: (spots) {
-                                  return spots.asMap().entries.map((entry) {
-                                    final index = entry.key;
-                                    final spot = entry.value;
-                                    final isImd = spot.barIndex == 0;
-
-                                    Color color;
-                                    String label;
-                                    if (isImd) {
-                                      color = _imdColor;
-                                      label = 'IMD';
-                                    } else {
-                                      final sensorIdx = spot.barIndex - 1;
-                                      if (sensorIdx >= 0 &&
-                                          sensorIdx < _selectedSensors.length) {
-                                        color =
-                                            ColorPalette.getColor(sensorIdx);
-                                        label =
-                                            _selectedSensors[sensorIdx].label;
-                                      } else {
-                                        color = Colors.grey;
-                                        label = 'Unknown';
-                                      }
-                                    }
-
-                                    // Time
-                                    final t = globalMin.add(Duration(
-                                        seconds: (spot.x * 60).round()));
-                                    String tsStr =
-                                        DateFormat('dd-MM-yyyy HH:mm:ss')
-                                            .format(t);
-
-                                    List<TextSpan> children = [];
-
-                                    // if it's the last spot, and we are comparing IMD against exactly 1 sensor
-                                    if (index == spots.length - 1 &&
-                                        spots.length == 2) {
-                                      final otherSpot = spots.firstWhere(
-                                          (s) => s.barIndex != spot.barIndex);
-                                      final diff = (spot.y - otherSpot.y).abs();
-                                      children.add(TextSpan(
-                                        text:
-                                            '\nDifference: ${diff.toStringAsFixed(1)}',
-                                        style: const TextStyle(
-                                            color: Colors.red,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 11),
-                                      ));
-                                    }
-
-                                    return LineTooltipItem(
-                                      '$tsStr\n',
-                                      TextStyle(
-                                          color: color,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 10),
-                                      children: [
-                                        TextSpan(
-                                          text:
-                                              '$label: ${spot.y.toStringAsFixed(1)}',
-                                          style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold),
-                                        ),
-                                        ...children,
-                                      ],
-                                    );
-                                  }).toList();
-                                },
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Center(
-                      child: Wrap(
-                        spacing: 16,
-                        runSpacing: 8,
-                        alignment: WrapAlignment.center,
-                        children: [
-                          _legendChip('IMD', _imdColor),
-                          ..._selectedSensors.map((sensor) {
-                            final color = ColorPalette.getColor(
-                                _selectedSensors.indexOf(sensor));
-                            return _legendChip(sensor.label, color);
-                          }),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                  ],
-                );
-              }).toList(),
-
-              // ── Statistics Summary ───────────────────────────────────────
-              const Divider(thickness: 2),
-              const SizedBox(height: 16),
-              const Text('Statistical Summary',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-
-              ..._selectedParams.map((p) {
-                final stats = _calcStats(p);
-                if (stats.isEmpty) return const SizedBox.shrink();
-
-                final unit = imdParamUnit(p);
-
-                List<Widget> rows = [];
-                // Add IMD
-                rows.add(Expanded(
-                    child: _statBlock(
-                        'IMD', stats['imd'] ?? {}, unit, _imdColor)));
-
-                for (int i = 0; i < _selectedSensors.length; i++) {
-                  final sensor = _selectedSensors[i];
-                  rows.add(const SizedBox(width: 12));
-                  rows.add(Expanded(
-                      child: _statBlock(sensor.label, stats[sensor.key] ?? {},
-                          unit, ColorPalette.getColor(i))));
-                  rows.add(const SizedBox(width: 12));
-                  rows.add(Expanded(
-                      child: _statBlock(
-                          '|Diff ${sensor.label}|',
-                          stats['diff_${sensor.key}'] ?? {},
-                          unit,
-                          Colors.purple)));
-                }
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 6, horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1565C0).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(imdParamLabel(p),
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF1565C0))),
-                    ),
-                    const SizedBox(height: 12),
-                    // Using SingleChildScrollView horizontally if many sensors
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: rows
-                              .map((e) => SizedBox(width: 150, child: e))
-                              .toList(), // Fixed width for horizontal scroll
-                        ),
-                      ),
-                    ),
-                    if (p != _selectedParams.last) ...[
-                      const SizedBox(height: 16),
-                      const Divider(),
-                      const SizedBox(height: 16),
-                    ],
-                  ],
-                );
-              }),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _statBlock(
-      String title, Map<String, double> stats, String unit, Color color) {
-    if (stats.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.2)),
-        ),
-        child: Text('$title\nNo data',
-            style: TextStyle(fontSize: 12, color: color),
-            textAlign: TextAlign.center),
-      );
-    }
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title,
-              style: TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.bold, color: color)),
-          const SizedBox(height: 8),
-          _statRow('Max', stats['max'], unit, color),
-          _statRow('Avg', stats['avg'], unit, color),
-          _statRow('Min', stats['min'], unit, color),
-        ],
-      ),
-    );
-  }
-
-  Widget _statRow(String label, double? val, String unit, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-          Text(
-            val != null ? '${val.toStringAsFixed(2)} $unit' : '—',
-            style: TextStyle(
-                fontSize: 11, fontWeight: FontWeight.w600, color: color),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _dateBtn(String label, DateTime date, bool isStart) {
-    return InkWell(
-      onTap: () => _pickDate(isStart),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
-            const SizedBox(width: 8),
-            Text('$label: ${_fmtDate(date)}',
-                style: const TextStyle(fontSize: 14)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _legendChip(String label, Color c) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
-        const SizedBox(width: 4),
-        Text(label,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-      ],
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════
-//  ORIGINAL PAGE
-// ════════════════════════════════════════════════════════════
-
-class SensorComparisonPage extends StatefulWidget {
-  const SensorComparisonPage({Key? key}) : super(key: key);
-
-  @override
-  State<SensorComparisonPage> createState() => _SensorComparisonPageState();
-}
-
-class _SensorComparisonPageState extends State<SensorComparisonPage> {
-  List<SensorEntry> selectedSensors = [
-    SensorEntry(deviceId: 1, sensorType: SensorType.cp),
-    SensorEntry(deviceId: 2, sensorType: SensorType.cp),
-  ];
-
-  final TextEditingController newDeviceController = TextEditingController();
-  SensorType _addSensorType = SensorType.cp;
-
-  DateTime startDate = DateTime.now();
-  DateTime endDate = DateTime.now();
-
-  List<WeatherParameter> selectedParameters = [WeatherParameter.temperature];
-
-  List<DeviceData> devicesData = [];
-  List<MatchedDataPoint> matchedDataPoints = [];
-
-  bool loading = false;
-  bool csvLoading = false;
-  String? error;
-
-  final Map<WeatherParameter, double> _zoomLevel = {};
-  final Map<WeatherParameter, double> _panOffset = {};
-  final Map<WeatherParameter, double> _baseScale = {};
-
-  final double minZoom = 1.0;
-  final double maxZoom = 10.0;
-
-  double _zoom(WeatherParameter p) => _zoomLevel[p] ?? 1.0;
-  double _pan(WeatherParameter p) => _panOffset[p] ?? 0.0;
-  double _base(WeatherParameter p) => _baseScale[p] ?? 1.0;
-
-  void _setZoom(WeatherParameter p, double v) =>
-      _zoomLevel[p] = v.clamp(minZoom, maxZoom);
-  void _setPan(WeatherParameter p, double v) => _panOffset[p] = v;
-  void _setBase(WeatherParameter p, double v) => _baseScale[p] = v;
-
-  DateTime? _globalMinTime;
-  double _totalMinutes = 0.0;
-
-  Future<void> pickDate(bool isStart) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: isStart ? startDate : endDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-    );
-    if (picked != null) {
-      setState(() {
-        if (isStart)
-          startDate = picked;
-        else
-          endDate = picked;
-      });
-    }
-  }
-
-  void addSensor() {
-    final deviceId = int.tryParse(newDeviceController.text);
-    if (deviceId == null) {
-      _snack('Please enter a valid device ID');
-      return;
-    }
-    final entry = SensorEntry(deviceId: deviceId, sensorType: _addSensorType);
-    if (selectedSensors.contains(entry)) {
-      _snack('${entry.label} already added');
-      return;
-    }
-    setState(() {
-      selectedSensors.add(entry);
-      newDeviceController.clear();
-    });
-  }
-
-  void removeSensor(SensorEntry entry) {
-    if (selectedSensors.length <= 1) {
-      _snack('At least one sensor is required');
-      return;
-    }
-    setState(() {
-      selectedSensors.remove(entry);
-      devicesData.removeWhere((d) => d.key == entry.key);
-      matchedDataPoints = TimestampMatcher.matchTimestamps(devicesData);
-      _recalcGlobalTime();
-    });
-  }
-
-  void _snack(String msg) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-
-  Future<void> fetchComparisonData() async {
-    if (selectedSensors.isEmpty) {
-      setState(() => error = 'Please add at least one sensor');
-      return;
-    }
-    setState(() {
-      loading = true;
-      error = null;
-      _zoomLevel.clear();
-      _panOffset.clear();
-      _baseScale.clear();
-    });
-    try {
-      final start = DateFormat('dd-MM-yyyy').format(startDate);
-      final end = DateFormat('dd-MM-yyyy').format(endDate);
-      final List<DeviceData> fetchedData = [];
-
-      for (int i = 0; i < selectedSensors.length; i++) {
-        final sensor = selectedSensors[i];
-        final url = buildApiUrl(
-          deviceId: sensor.deviceId,
-          sensorType: sensor.sensorType,
-          startDate: start,
-          endDate: end,
-        );
-        final response = await http.get(Uri.parse(url));
-        if (response.statusCode != 200) {
-          throw Exception(
-              'Failed to load data for ${sensor.label} (HTTP ${response.statusCode})');
-        }
-        final body = json.decode(response.body);
-        final items = body['items'] as List;
-        final data = items.map((e) => WeatherData.fromJson(e)).toList();
-        fetchedData.add(DeviceData(
-          deviceId: sensor.deviceId,
-          sensorType: sensor.sensorType,
-          data: data,
-          color: ColorPalette.getColor(i),
-        ));
-      }
-
-      final matched = TimestampMatcher.matchTimestamps(fetchedData);
-      setState(() {
-        devicesData = fetchedData;
-        matchedDataPoints = matched;
-        loading = false;
-        _recalcGlobalTime();
-      });
-    } catch (e) {
-      setState(() {
-        error = e.toString();
-        loading = false;
-      });
-    }
-  }
-
-  void _recalcGlobalTime() {
-    DateTime? earliest;
-    DateTime? latest;
-    for (final device in devicesData) {
-      for (final d in device.data) {
-        if (earliest == null || d.timeStamp.isBefore(earliest))
-          earliest = d.timeStamp;
-        if (latest == null || d.timeStamp.isAfter(latest)) latest = d.timeStamp;
-      }
-    }
-    _globalMinTime = earliest;
-    _totalMinutes = (earliest != null && latest != null)
-        ? latest.difference(earliest).inSeconds / 60.0
-        : 0.0;
-  }
-
-  void resetZoom(WeatherParameter p) {
-    setState(() {
-      _zoomLevel[p] = 1.0;
-      _panOffset[p] = 0.0;
-      _baseScale[p] = 1.0;
-    });
-  }
-
-  bool get anyChartZoomed => _zoomLevel.values.any((z) => z > 1.0);
-
-  Future<void> downloadCsv() async {
-    if (devicesData.isEmpty) {
-      _snack('No data loaded yet — please compare sensors first');
-      return;
-    }
-    setState(() => csvLoading = true);
-
-    try {
-      final start = DateFormat('dd-MM-yyyy').format(startDate);
-      final end = DateFormat('dd-MM-yyyy').format(endDate);
-
-      final List<({SensorEntry sensor, String downloadUrl})> downloadLinks = [];
-
-      for (final sensor in selectedSensors) {
-        final apiUrl = buildDownloadApiUrl(
-          deviceId: sensor.deviceId,
-          sensorType: sensor.sensorType,
-          startDate: start,
-          endDate: end,
-        );
-
-        final resp = await http.get(Uri.parse(apiUrl));
-        if (resp.statusCode != 200) {
-          throw Exception(
-              'Download API failed for ${sensor.label} (HTTP ${resp.statusCode})');
-        }
-
-        final body = json.decode(resp.body) as Map<String, dynamic>;
-        final downloadUrl = body['download_url'] as String?;
-        if (downloadUrl == null || downloadUrl.isEmpty) {
-          throw Exception('No download_url returned for ${sensor.label}');
-        }
-
-        downloadLinks.add((sensor: sensor, downloadUrl: downloadUrl));
-      }
-
-      final List<({SensorEntry sensor, _RawCsvData csv})> sensorCsvs = [];
-
-      for (final link in downloadLinks) {
-        final s3Resp = await http.get(Uri.parse(link.downloadUrl));
-        if (s3Resp.statusCode != 200) {
-          throw Exception(
-              'Failed to fetch S3 CSV for ${link.sensor.label} (HTTP ${s3Resp.statusCode})');
-        }
-        sensorCsvs.add((
-          sensor: link.sensor,
-          csv: _parseSensorCsv(s3Resp.body),
-        ));
-      }
-
-      final Set<String> allTimestamps = {};
-      for (final sc in sensorCsvs) {
-        allTimestamps.addAll(sc.csv.rows.keys);
-      }
-      final sortedTimestamps = allTimestamps.toList()..sort();
-
-      final List<String> orderedCols = [];
-      final Set<String> seenCols = {};
-      for (final sc in sensorCsvs) {
-        for (final col in sc.csv.columns) {
-          if (!seenCols.contains(col)) {
-            seenCols.add(col);
-            orderedCols.add(col);
-          }
-        }
-      }
-
-      final headerCells = <String>['Timestamp'];
-      for (final col in orderedCols) {
-        for (final sc in sensorCsvs) {
-          headerCells.add('${col}_${sc.sensor.key}');
-        }
-      }
-
-      final csvLines = <String>[headerCells.join(',')];
-
-      for (final ts in sortedTimestamps) {
-        final cells = <String>[ts];
-        for (final col in orderedCols) {
-          for (final sc in sensorCsvs) {
-            final rowData = sc.csv.rows[ts];
-            cells.add(rowData?[col] ?? '');
-          }
-        }
-        csvLines.add(cells.join(','));
-      }
-
-      final csvContent = csvLines.join('\n');
-
-      final startStr = DateFormat('yyyyMMdd').format(startDate);
-      final endStr = DateFormat('yyyyMMdd').format(endDate);
-      final sensorKeys = selectedSensors.map((s) => s.key).join('_');
-      final fileName =
-          'sensor_comparison_${sensorKeys}_${startStr}_$endStr.csv';
-
-      _triggerBrowserDownload(csvContent, fileName);
-      _snack('✓ Downloaded $fileName  (${sortedTimestamps.length} rows)');
-    } catch (e) {
-      _snack('CSV download failed: $e');
-    } finally {
-      setState(() => csvLoading = false);
-    }
-  }
-
-  void _triggerBrowserDownload(String content, String fileName) {
-    final bytes = utf8.encode(content);
-    final blob = html.Blob([bytes], 'text/csv;charset=utf-8;');
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    final anchor = html.AnchorElement(href: url)
-      ..setAttribute('download', fileName)
-      ..style.display = 'none';
-    html.document.body!.append(anchor);
-    anchor.click();
-    anchor.remove();
-    Future.delayed(
-      const Duration(milliseconds: 200),
-      () => html.Url.revokeObjectUrl(url),
-    );
-  }
-
-  Map<WeatherParameter, Map<String, Map<String, double>>>
-      calculateStatistics() {
-    if (matchedDataPoints.isEmpty) return {};
-    final Map<WeatherParameter, Map<String, Map<String, double>>> allStats = {};
-    for (final parameter in selectedParameters) {
-      final Map<String, List<double>> deviceValues = {};
-      for (final mp in matchedDataPoints) {
-        for (final entry in mp.deviceData.entries) {
-          deviceValues
-              .putIfAbsent(entry.key, () => [])
-              .add(getParameterValue(entry.value, parameter));
-        }
-      }
-      final stats = {
-        'max': <String, double>{},
-        'min': <String, double>{},
-        'avg': <String, double>{},
-      };
-      for (final entry in deviceValues.entries) {
-        final values = entry.value;
-        if (values.isNotEmpty) {
-          stats['max']![entry.key] = values.reduce(max);
-          stats['min']![entry.key] = values.reduce(min);
-          stats['avg']![entry.key] =
-              values.reduce((a, b) => a + b) / values.length;
-        }
-      }
-      allStats[parameter] = stats;
-    }
-    return allStats;
-  }
-
-  Map<WeatherParameter, Map<String, Map<String, double>>>
-      calculateDifferenceStatistics() {
-    if (matchedDataPoints.isEmpty || selectedSensors.length < 2) return {};
-    final Map<WeatherParameter, Map<String, Map<String, double>>> allDiffStats =
-        {};
-    for (final parameter in selectedParameters) {
-      final Map<String, Map<String, double>> diffStats = {};
-      for (int i = 0; i < selectedSensors.length - 1; i++) {
-        for (int j = i + 1; j < selectedSensors.length; j++) {
-          final keyA = selectedSensors[i].key;
-          final keyB = selectedSensors[j].key;
-          final List<double> differences = [];
-          for (final mp in matchedDataPoints) {
-            final dataA = mp.deviceData[keyA];
-            final dataB = mp.deviceData[keyB];
-            if (dataA != null && dataB != null) {
-              differences.add(
-                (getParameterValue(dataA, parameter) -
-                        getParameterValue(dataB, parameter))
-                    .abs(),
-              );
-            }
-          }
-          if (differences.isNotEmpty) {
-            diffStats['$keyA vs $keyB'] = {
-              'maxDiff': differences.reduce(max),
-              'avgDiff':
-                  differences.reduce((a, b) => a + b) / differences.length,
-              'minDiff': differences.reduce(min),
-            };
-          }
-        }
-      }
-      allDiffStats[parameter] = diffStats;
-    }
-    return allDiffStats;
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F4F8),
+      backgroundColor: _kBg,
       appBar: AppBar(
-        title: const Text('Multi-Sensor Comparison'),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
+        title: const Text('Weather Sensor Dashboard',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+        backgroundColor: Colors.white,
+        foregroundColor: _kTextPrimary,
+        elevation: 0,
+        surfaceTintColor: Colors.white,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: Container(
+            color: Colors.white,
+            child: TabBar(
+              controller: _tabController,
+              labelColor: _kPrimary,
+              unselectedLabelColor: _kTextSecondary,
+              indicatorColor: _kPrimary,
+              indicatorWeight: 2,
+              labelStyle:
+                  const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              unselectedLabelStyle: const TextStyle(fontSize: 13),
+              tabs: const [
+                Tab(text: 'Sensor vs Sensor'),
+                Tab(text: 'IMD Comparison'),
+              ],
+            ),
+          ),
+        ),
         actions: [
-          if (!loading && devicesData.isNotEmpty) ...[
-            if (csvLoading)
+          if (hasData) ...[
+            if (isBusy)
               const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12),
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white),
-                ),
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Center(
+                    child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: _kPrimary))),
               )
             else
               IconButton(
-                icon: const Icon(Icons.download),
+                icon: const Icon(Icons.download_outlined),
                 tooltip: 'Download CSV',
-                onPressed: downloadCsv,
+                onPressed: _isImdTab ? _downloadImdCsv : _downloadSensorCsv,
               ),
             IconButton(
-              icon: const Icon(Icons.refresh),
-              tooltip: 'Refresh Data',
-              onPressed: fetchComparisonData,
+              icon: const Icon(Icons.refresh_outlined),
+              tooltip: 'Refresh',
+              onPressed: _isImdTab ? _fetchImdData : _fetchSensorData,
             ),
           ],
-          if (!loading && devicesData.isNotEmpty && anyChartZoomed)
-            IconButton(
-              icon: const Icon(Icons.zoom_out_map),
-              tooltip: 'Reset All Zooms',
-              onPressed: () {
-                setState(() {
-                  _zoomLevel.clear();
-                  _panOffset.clear();
-                  _baseScale.clear();
-                });
-              },
-            ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            _buildSensorSelector(),
-            const SizedBox(height: 16),
-            _buildParameterAndDateSelector(),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.compare_arrows),
-              label: Text('Compare ${selectedSensors.length} Sensors'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
-                foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              ),
-              onPressed: loading ? null : fetchComparisonData,
-            ),
-            const SizedBox(height: 24),
-            if (loading) const CircularProgressIndicator(),
-            if (error != null)
-              Text(error!, style: const TextStyle(color: Colors.red)),
-            if (!loading && devicesData.isNotEmpty) ...[
-              _buildDownloadBanner(),
-              const SizedBox(height: 16),
-              ...selectedParameters.map(
-                (parameter) => Column(
-                  children: [
-                    _buildChartCard(parameter),
-                    const SizedBox(height: 16),
-                  ],
-                ),
-              ),
-              _buildStatisticsCard(),
-            ],
-
-            // ════════════════════════════════════════════════
-            //  IMD vs SW007 SECTION — always visible
-            // ════════════════════════════════════════════════
-            const SizedBox(height: 32),
-            const Divider(thickness: 2),
-            const SizedBox(height: 8),
-            const Row(
-              children: [
-                Icon(Icons.cloud_queue, color: Color(0xFF1565C0)),
-                SizedBox(width: 8),
-                Text(
-                  'IMD Reference Station Comparison',
-                  style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1565C0)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const IMDComparisonSection(),
-          ],
-        ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildSensorTab(),
+          _buildImdTab(),
+        ],
       ),
     );
   }
 
-  Widget _buildDownloadBanner() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.deepPurple.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.deepPurple.shade200),
-      ),
-      child: Row(
+  // ════════════════════════════════════════════════════════════
+  //  SENSOR vs SENSOR TAB
+  // ════════════════════════════════════════════════════════════
+
+  Widget _buildSensorTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
         children: [
-          const Icon(Icons.table_chart, color: Colors.deepPurple, size: 28),
-          const SizedBox(width: 12),
-          Expanded(
+          // Config card
+          _AppCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Export Raw Sensor Data',
-                  style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.deepPurple),
-                ),
-                Text(
-                  'All parameters · ${selectedSensors.length} sensors · grouped by parameter',
-                  style: TextStyle(
-                      fontSize: 12, color: Colors.deepPurple.shade400),
-                ),
-              ],
-            ),
-          ),
-          if (csvLoading)
-            const SizedBox(
-              width: 32,
-              height: 32,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          else
-            ElevatedButton.icon(
-              icon: const Icon(Icons.download, size: 18),
-              label: const Text('Download CSV'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
-                foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                textStyle: const TextStyle(fontSize: 13),
-              ),
-              onPressed: downloadCsv,
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSensorSelector() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Selected Sensors',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                _sensorTypeLegendDot(Colors.blue),
-                const SizedBox(width: 4),
-                const Text('CP = Campus  ', style: TextStyle(fontSize: 12)),
-                _sensorTypeLegendDot(Colors.teal),
-                const SizedBox(width: 4),
-                const Text('SW = SW  ', style: TextStyle(fontSize: 12)),
-                _sensorTypeLegendDot(Colors.deepOrange),
-                const SizedBox(width: 4),
-                const Text('WJ = WJ sensor', style: TextStyle(fontSize: 12)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: selectedSensors.map((sensor) {
-                final color =
-                    ColorPalette.getColor(selectedSensors.indexOf(sensor));
-                return Chip(
-                  avatar: CircleAvatar(
-                    backgroundColor: Colors.white.withOpacity(0.3),
-                    child: Text(
-                      sensorTypeLabel(sensor.sensorType),
-                      style: const TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white),
-                    ),
-                  ),
-                  label: Text(sensor.label,
-                      style: const TextStyle(color: Colors.white)),
-                  backgroundColor: color,
-                  deleteIcon:
-                      const Icon(Icons.close, color: Colors.white, size: 18),
-                  onDeleted: () => removeSensor(sensor),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade400),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: SensorType.values.map((type) {
-                      final selected = _addSensorType == type;
-                      return GestureDetector(
-                        onTap: () => setState(() => _addSensorType = type),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: selected
-                                ? Colors.deepPurple
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(7),
-                          ),
-                          child: Text(
-                            sensorTypeLabel(type),
-                            style: TextStyle(
-                              color: selected ? Colors.white : Colors.grey,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: newDeviceController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Device ID',
-                      border: OutlineInputBorder(),
-                      hintText: 'Enter number',
-                      isDense: true,
-                    ),
-                    onSubmitted: (_) => addSensor(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add'),
-                  onPressed: addSensor,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _sensorTypeLegendDot(Color color) => Container(
-        width: 10,
-        height: 10,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      );
-
-  Widget _buildParameterAndDateSelector() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Select Parameters',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: WeatherParameter.values.map((parameter) {
-                final isSelected = selectedParameters.contains(parameter);
-                return FilterChip(
-                  label: Text(parameterLabel(parameter)),
-                  selected: isSelected,
-                  onSelected: (selected) {
+                _SensorSelectorWidget(
+                  sensors: _sensors,
+                  onAdd: (entry) {
+                    if (_sensors.contains(entry)) {
+                      _snack('${entry.label} already added');
+                      return;
+                    }
+                    setState(() => _sensors.add(entry));
+                  },
+                  onRemove: (entry) {
+                    if (_sensors.length <= 1) {
+                      _snack('At least one sensor required');
+                      return;
+                    }
                     setState(() {
-                      if (selected) {
-                        selectedParameters.add(parameter);
-                      } else {
-                        if (selectedParameters.length > 1) {
-                          selectedParameters.remove(parameter);
+                      _sensors.remove(entry);
+                      _devicesData.removeWhere((d) => d.key == entry.key);
+                      _matched = TimestampMatcher.matchTimestamps(_devicesData);
+                    });
+                  },
+                ),
+                const SizedBox(height: 18),
+                const Divider(color: _kBorder, thickness: 0.5),
+                const SizedBox(height: 14),
+                _DateRangeSelector(
+                  startDate: _startDate,
+                  endDate: _endDate,
+                  onPickStart: () => _pickDate(true),
+                  onPickEnd: () => _pickDate(false),
+                ),
+                const SizedBox(height: 18),
+                const Divider(color: _kBorder, thickness: 0.5),
+                const SizedBox(height: 14),
+                const _SectionLabel('Parameters'),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: WeatherParameter.values.map((p) {
+                    final sel = _selectedParams.contains(p);
+                    return _ParamChip(
+                      label: parameterLabel(p),
+                      selected: sel,
+                      onTap: () => setState(() {
+                        if (sel) {
+                          if (_selectedParams.length > 1)
+                            _selectedParams.remove(p);
+                          else
+                            _snack('At least one parameter required');
                         } else {
-                          _snack('At least one parameter must be selected');
+                          _selectedParams.add(p);
                         }
-                      }
-                    });
-                  },
-                  selectedColor: Colors.deepPurple.withOpacity(0.3),
-                  checkmarkColor: Colors.deepPurple,
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(child: _dateButton('Start Date', startDate, true)),
-                const SizedBox(width: 16),
-                Expanded(child: _dateButton('End Date', endDate, false)),
+                      }),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _kPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(borderRadius: _kRadiusSm),
+                    ),
+                    onPressed: _loading ? null : _fetchSensorData,
+                    icon: _loading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.compare_arrows, size: 18),
+                    label: Text(_loading ? 'Loading...' : 'Compare Sensors',
+                        style: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w500)),
+                  ),
+                ),
               ],
             ),
+          ),
+
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            _ErrorBanner(_error!),
           ],
-        ),
-      ),
-    );
-  }
 
-  Widget _dateButton(String label, DateTime date, bool isStart) {
-    return OutlinedButton(
-      onPressed: () => pickDate(isStart),
-      child: Column(
-        children: [
-          Text(label),
-          const SizedBox(height: 4),
-          Text(
-            DateFormat('dd-MM-yyyy').format(date),
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLegend() {
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 16,
-      runSpacing: 8,
-      children: devicesData
-          .map((device) => _buildLegendItem(device.label, device.color))
-          .toList(),
-    );
-  }
-
-  Widget _buildLegendItem(String label, Color color) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 16,
-          height: 16,
-          decoration: BoxDecoration(
-              color: color, borderRadius: BorderRadius.circular(4)),
-        ),
-        const SizedBox(width: 8),
-        Text(label, style: const TextStyle(fontSize: 12)),
-      ],
-    );
-  }
-
-  Widget _buildChartCard(WeatherParameter parameter) {
-    return Container(
-      margin: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.hardEdge,
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  parameterLabel(parameter),
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                if (_zoom(parameter) > 1.0)
-                  TextButton.icon(
-                    icon: const Icon(Icons.zoom_out_map, size: 16),
-                    label: const Text('Reset', style: TextStyle(fontSize: 12)),
-                    onPressed: () => resetZoom(parameter),
-                  ),
-              ],
-            ),
-          ),
-          SizedBox(
-            height: 350,
-            child: ClipRect(
-              clipBehavior: Clip.hardEdge,
-              child: _buildChart(parameter),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16.0),
-            child: _buildLegend(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildChart(WeatherParameter parameter) {
-    if (devicesData.isEmpty || _globalMinTime == null) {
-      return const Center(child: Text('No data available'));
-    }
-    final globalMin = _globalMinTime!;
-    final totalMinutes = _totalMinutes;
-    if (totalMinutes <= 0) {
-      return const Center(child: Text('No data points available'));
-    }
-
-    final zoomLevel = _zoom(parameter);
-    final panOffset = _pan(parameter);
-    final effectiveTotal = totalMinutes < 1.0 ? 1.0 : totalMinutes;
-    final visibleMinutes = effectiveTotal / zoomLevel;
-    final maxPan = max(0.0, effectiveTotal - visibleMinutes);
-    final clampedPan = panOffset.clamp(0.0, maxPan).toDouble();
-    final rawMinX = clampedPan;
-    final rawMaxX = min(clampedPan + visibleMinutes, effectiveTotal);
-    final minXMin = rawMinX;
-    final maxXMin = rawMaxX > rawMinX ? rawMaxX : rawMinX + 1.0;
-
-    final List<LineChartBarData> lineBars = [];
-    double allYMin = double.infinity;
-    double allYMax = double.negativeInfinity;
-
-    for (final device in devicesData) {
-      final spots = <FlSpot>[];
-      for (final mp in matchedDataPoints) {
-        final d = mp.deviceData[device.key];
-        if (d != null) {
-          final elapsed = d.timeStamp.difference(globalMin).inSeconds / 60.0;
-          final yVal = getParameterValue(d, parameter);
-          spots.add(FlSpot(elapsed, yVal));
-          if (yVal < allYMin) allYMin = yVal;
-          if (yVal > allYMax) allYMax = yVal;
-        }
-      }
-      if (spots.isNotEmpty) {
-        lineBars.add(LineChartBarData(
-          spots: spots,
-          isCurved: true,
-          color: device.color,
-          barWidth: 3,
-          isStrokeCapRound: true,
-          dotData: FlDotData(show: zoomLevel > 3),
-          belowBarData: BarAreaData(show: false),
-        ));
-      }
-    }
-
-    if (allYMin == double.infinity) {
-      allYMin = 0;
-      allYMax = 1;
-    } else if (allYMin == allYMax) {
-      allYMin -= 1;
-      allYMax += 1;
-    } else {
-      final yPad = (allYMax - allYMin) * 0.05;
-      allYMin -= yPad;
-      allYMax += yPad;
-    }
-
-    return ClipRect(
-      clipBehavior: Clip.hardEdge,
-      child: RawGestureDetector(
-        gestures: {
-          _PanZoomGestureRecognizer:
-              GestureRecognizerFactoryWithHandlers<_PanZoomGestureRecognizer>(
-            () => _PanZoomGestureRecognizer(),
-            (_PanZoomGestureRecognizer instance) {
-              instance
-                ..onStart = (_) {
-                  _setBase(parameter, _zoom(parameter));
-                }
-                ..onUpdate = (details) {
-                  if (details.scale != 1.0) {
-                    setState(() {
-                      _setZoom(parameter, _base(parameter) * details.scale);
-                    });
-                  }
-                  if (details.focalPointDelta.dx.abs() > 0.1) {
-                    final effectiveTot =
-                        _totalMinutes < 1.0 ? 1.0 : _totalMinutes;
-                    final sensitivity = effectiveTot / (400 * _zoom(parameter));
-                    final vis = effectiveTot / _zoom(parameter);
-                    final newPan = (_pan(parameter) -
-                            details.focalPointDelta.dx * sensitivity)
-                        .clamp(0.0, max(0.0, effectiveTot - vis))
-                        .toDouble();
-                    setState(() => _setPan(parameter, newPan));
-                  }
-                }
-                ..onEnd = (_) {
-                  _setBase(parameter, _zoom(parameter));
-                };
-            },
-          ),
-        },
-        child: Listener(
-          onPointerSignal: (signal) {
-            if (signal is PointerScrollEvent &&
-                HardwareKeyboard.instance.isShiftPressed) {
-              GestureBinding.instance.pointerSignalResolver.register(signal,
-                  (event) {
-                if (event is PointerScrollEvent) {
-                  final delta = event.scrollDelta.dy;
-                  setState(() {
-                    final newZoom = delta < 0
-                        ? min(maxZoom, _zoom(parameter) * 1.1)
-                        : max(minZoom, _zoom(parameter) / 1.1);
-                    _setZoom(parameter, newZoom);
-                  });
-                }
-              });
-            }
-          },
-          child: LineChart(
-            LineChartData(
-              clipData: const FlClipData.all(),
-              minX: minXMin,
-              maxX: maxXMin,
-              minY: allYMin,
-              maxY: allYMax,
-              gridData: FlGridData(
-                show: true,
-                getDrawingHorizontalLine: (_) =>
-                    FlLine(color: Colors.grey.shade200, strokeWidth: 1),
-                getDrawingVerticalLine: (_) =>
-                    FlLine(color: Colors.grey.shade200, strokeWidth: 1),
-              ),
-              borderData: FlBorderData(
-                show: true,
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              titlesData: FlTitlesData(
-                topTitles:
-                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                leftTitles: AxisTitles(
-                  axisNameWidget: Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Text(
-                      parameterLabel(parameter),
-                      style: const TextStyle(
-                          fontSize: 10, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 48,
-                    getTitlesWidget: (value, _) => Text(
-                      value.toStringAsFixed(1),
-                      style: const TextStyle(fontSize: 10),
-                    ),
-                  ),
-                ),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 30,
-                    interval: max(1.0, (visibleMinutes / 10).ceilToDouble()),
-                    getTitlesWidget: (value, _) {
-                      final labelTime = globalMin
-                          .add(Duration(seconds: (value * 60).round()));
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          DateFormat('HH:mm').format(labelTime),
-                          style: const TextStyle(fontSize: 10),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              lineBarsData: lineBars,
-              lineTouchData: LineTouchData(
-                touchTooltipData: LineTouchTooltipData(
-                  getTooltipColor: (touchedSpot) =>
-                      Colors.white.withOpacity(0.8),
-                  tooltipBorder:
-                      BorderSide(color: Colors.grey.withOpacity(0.2), width: 1),
-                  fitInsideHorizontally: true,
-                  fitInsideVertically: true,
-                  getTooltipItems: (touchedSpots) {
-                    return touchedSpots.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final spot = entry.value;
-                      final deviceIndex = spot.barIndex;
-                      if (deviceIndex >= devicesData.length) return null;
-                      final device = devicesData[deviceIndex];
-                      WeatherData? closest;
-                      double minDiff = double.infinity;
-                      for (final d in device.data) {
-                        final elapsed =
-                            d.timeStamp.difference(globalMin).inSeconds / 60.0;
-                        final diff = (elapsed - spot.x).abs();
-                        if (diff < minDiff) {
-                          minDiff = diff;
-                          closest = d;
-                        }
-                      }
-                      if (closest == null) return null;
-                      final ts = DateFormat('dd-MM-yyyy HH:mm:ss')
-                          .format(closest.timeStamp);
-                      final value = getParameterValue(closest, parameter);
-                      String fmt(double v) {
-                        if (parameter == WeatherParameter.windDirection) {
-                          return '${v.toStringAsFixed(1)}° '
-                              '(${degreesToDirection(v)}) ${getWindArrow(v)}';
-                        }
-                        return v.toStringAsFixed(1);
-                      }
-
-                      String diffText = '';
-                      if (devicesData.length == 2 &&
-                          touchedSpots.length == 2 &&
-                          index == touchedSpots.length - 1) {
-                        final val1 = touchedSpots[0].y;
-                        final val2 = touchedSpots[1].y;
-                        final diff = (val1 - val2).abs();
-                        String diffFmt(double v) {
-                          if (parameter == WeatherParameter.windDirection) {
-                            return '${v.toStringAsFixed(1)}°';
-                          }
-                          return v.toStringAsFixed(1);
-                        }
-
-                        diffText = '\nDifference: ${diffFmt(diff)}';
-                      }
-
-                      return LineTooltipItem(
-                        '$ts\n${device.label}: ${fmt(value)}',
-                        TextStyle(
-                          color: device.color,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                        children: diffText.isEmpty
-                            ? null
-                            : [
-                                TextSpan(
-                                  text: diffText,
-                                  style: const TextStyle(
-                                    color: Colors.red,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                      );
-                    }).toList();
-                  },
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatisticsCard() {
-    final allStats = calculateStatistics();
-    final allDiffStats = calculateDifferenceStatistics();
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Statistics (Based on Matched Timestamps)',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            if (matchedDataPoints.isEmpty) ...[
-              const SizedBox(height: 8),
-              const Text(
-                'No overlapping timestamps found across all sensors.',
-                style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.red,
-                    fontStyle: FontStyle.italic),
-              ),
-            ],
+          if (!_loading &&
+              _devicesData.isNotEmpty &&
+              _globalMinTime != null) ...[
             const SizedBox(height: 16),
-            ...selectedParameters.map((parameter) {
-              final stats = allStats[parameter] ?? {};
-              final diffStats = allDiffStats[parameter] ?? {};
-              final unit = parameterUnit(parameter);
-              final isWind = parameter == WeatherParameter.windDirection;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.deepPurple.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      parameterLabel(parameter),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.deepPurple,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (isWind) ...[
-                    _buildWindDirectionInfo(),
-                    const SizedBox(height: 16),
-                  ],
-                  const Text(
-                    'Individual Sensor Values',
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.deepPurple),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildStatSection(
-                      'Maximum', stats['max'] ?? {}, unit, Colors.red),
-                  const SizedBox(height: 12),
-                  _buildStatSection(
-                      'Average', stats['avg'] ?? {}, unit, Colors.blue),
-                  const SizedBox(height: 12),
-                  _buildStatSection(
-                      'Minimum', stats['min'] ?? {}, unit, Colors.green),
-                  if (diffStats.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Sensor Comparison Differences',
-                      style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.deepPurple),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildDifferenceStatistics(diffStats, unit),
-                  ],
-                  if (parameter != selectedParameters.last) ...[
-                    const SizedBox(height: 24),
-                    const Divider(thickness: 2),
-                    const SizedBox(height: 24),
-                  ],
-                ],
+            ..._selectedParams.map((p) {
+              final globalMin = _globalMinTime!;
+              final lineBars = _devicesData.map((device) {
+                final spots = <FlSpot>[];
+                for (final mp in _matched) {
+                  final d = mp.deviceData[device.key];
+                  if (d != null) {
+                    spots.add(FlSpot(
+                        d.timeStamp.difference(globalMin).inSeconds / 60.0,
+                        getParameterValue(d, p)));
+                  }
+                }
+                return LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    color: device.color,
+                    barWidth: 2.5,
+                    dotData: const FlDotData(show: false));
+              }).toList();
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: _ChartWidget(
+                  title: parameterLabel(p),
+                  lineBars: lineBars,
+                  legend: _devicesData
+                      .map((d) => (label: d.label, color: d.color))
+                      .toList(),
+                  globalMin: globalMin,
+                  totalMinutes: _totalMinutes,
+                  getTooltipItems: (spots) => spots.asMap().entries.map((e) {
+                    final spot = e.value;
+                    final idx = spot.barIndex;
+                    if (idx >= _devicesData.length) return null;
+                    final device = _devicesData[idx];
+                    WeatherData? closest;
+                    double minDiff = double.infinity;
+                    for (final d in device.data) {
+                      final el =
+                          d.timeStamp.difference(globalMin).inSeconds / 60.0;
+                      final diff = (el - spot.x).abs();
+                      if (diff < minDiff) {
+                        minDiff = diff;
+                        closest = d;
+                      }
+                    }
+                    if (closest == null) return null;
+                    final ts =
+                        DateFormat('dd/MM HH:mm').format(closest.timeStamp);
+                    final val = getParameterValue(closest, p);
+                    String fmtVal = p == WeatherParameter.windDirection
+                        ? '${val.toStringAsFixed(1)}° (${degreesToDirection(val)}) ${getWindArrow(val)}'
+                        : val.toStringAsFixed(1);
+                    String diffText = '';
+                    if (spots.length == 2 && e.key == spots.length - 1) {
+                      diffText =
+                          '\nΔ ${(spots[0].y - spots[1].y).abs().toStringAsFixed(1)}';
+                    }
+                    return LineTooltipItem(
+                      '$ts\n${device.label}: $fmtVal$diffText',
+                      TextStyle(
+                          color: device.color,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600),
+                    );
+                  }).toList(),
+                ),
               );
             }),
+
+            // Statistics
+            _buildSensorStats(),
           ],
-        ),
+          const SizedBox(height: 24),
+        ],
       ),
     );
   }
 
-  Widget _buildStatSection(
-      String title, Map<String, double> values, String unit, Color color) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title,
-            style: TextStyle(
-                fontSize: 14, fontWeight: FontWeight.w600, color: color)),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 16,
-          runSpacing: 8,
-          children: values.entries.map((entry) {
-            final deviceIndex =
-                devicesData.indexWhere((d) => d.key == entry.key);
-            final deviceColor =
-                deviceIndex >= 0 ? devicesData[deviceIndex].color : Colors.grey;
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: deviceColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: deviceColor.withOpacity(0.3)),
-              ),
-              child: Text(
-                '${entry.key}: ${entry.value.toStringAsFixed(2)} $unit',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: deviceColor.withOpacity(0.9),
+  Widget _buildSensorStats() {
+    if (_matched.isEmpty) return const SizedBox.shrink();
+    return _AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.analytics_outlined, size: 16, color: _kPrimary),
+              const SizedBox(width: 8),
+              const Text('Statistics',
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: _kTextPrimary)),
+              const Spacer(),
+              Text('${_matched.length} matched pts',
+                  style: const TextStyle(fontSize: 11, color: _kTextTertiary)),
+            ],
+          ),
+          ..._selectedParams.map((p) {
+            final unit = parameterUnit(p);
+            final Map<String, List<double>> vals = {};
+            for (final mp in _matched) {
+              for (final e in mp.deviceData.entries) {
+                vals
+                    .putIfAbsent(e.key, () => [])
+                    .add(getParameterValue(e.value, p));
+              }
+            }
+
+            final statRows = <Widget>[];
+            for (int i = 0; i < _devicesData.length; i++) {
+              final d = _devicesData[i];
+              final s = _stats(vals[d.key] ?? []);
+              if (s.isEmpty) continue;
+              statRows.add(Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                              color: d.color, shape: BoxShape.circle)),
+                      const SizedBox(width: 6),
+                      Text(d.label,
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: d.color)),
+                    ]),
+                    const SizedBox(height: 6),
+                    Row(children: [
+                      Expanded(
+                          child: _MetricCard(
+                              label: 'Max',
+                              value: '${s['max']!.toStringAsFixed(1)} $unit',
+                              color: const Color(0xFFDC2626))),
+                      const SizedBox(width: 8),
+                      Expanded(
+                          child: _MetricCard(
+                              label: 'Avg',
+                              value: '${s['avg']!.toStringAsFixed(1)} $unit',
+                              color: const Color(0xFF2563EB))),
+                      const SizedBox(width: 8),
+                      Expanded(
+                          child: _MetricCard(
+                              label: 'Min',
+                              value: '${s['min']!.toStringAsFixed(1)} $unit',
+                              color: const Color(0xFF16A34A))),
+                    ]),
+                  ],
                 ),
-              ),
+              ));
+            }
+
+            // Differences between pairs
+            final diffWidgets = <Widget>[];
+            for (int i = 0; i < _devicesData.length - 1; i++) {
+              for (int j = i + 1; j < _devicesData.length; j++) {
+                final ka = _devicesData[i].key;
+                final kb = _devicesData[j].key;
+                final diffs = <double>[];
+                for (final mp in _matched) {
+                  final da = mp.deviceData[ka];
+                  final db = mp.deviceData[kb];
+                  if (da != null && db != null) {
+                    diffs.add(
+                        (getParameterValue(da, p) - getParameterValue(db, p))
+                            .abs());
+                  }
+                }
+                if (diffs.isEmpty) continue;
+                final ds = _stats(diffs);
+                diffWidgets.add(Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: _kRadiusSm,
+                    border: Border.all(color: _kBorder, width: 0.5),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                                color: _devicesData[i].color,
+                                shape: BoxShape.circle)),
+                        const SizedBox(width: 4),
+                        Text(_devicesData[i].key,
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: _devicesData[i].color,
+                                fontWeight: FontWeight.w500)),
+                        const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 6),
+                            child: Icon(Icons.compare_arrows,
+                                size: 13, color: _kTextTertiary)),
+                        Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                                color: _devicesData[j].color,
+                                shape: BoxShape.circle)),
+                        const SizedBox(width: 4),
+                        Text(_devicesData[j].key,
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: _devicesData[j].color,
+                                fontWeight: FontWeight.w500)),
+                      ]),
+                      const SizedBox(height: 8),
+                      Row(children: [
+                        Expanded(
+                            child: _MetricCard(
+                                label: 'Max Δ',
+                                value: '${ds['max']!.toStringAsFixed(2)} $unit',
+                                color: const Color(0xFFDC2626))),
+                        const SizedBox(width: 8),
+                        Expanded(
+                            child: _MetricCard(
+                                label: 'Avg Δ',
+                                value: '${ds['avg']!.toStringAsFixed(2)} $unit',
+                                color: const Color(0xFF9333EA))),
+                        const SizedBox(width: 8),
+                        Expanded(
+                            child: _MetricCard(
+                                label: 'Min Δ',
+                                value: '${ds['min']!.toStringAsFixed(2)} $unit',
+                                color: const Color(0xFF0D9488))),
+                      ]),
+                    ],
+                  ),
+                ));
+              }
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _sectionDivider(parameterLabel(p)),
+                ...statRows,
+                if (diffWidgets.isNotEmpty) ...[
+                  const Text('Differences',
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: _kTextSecondary)),
+                  const SizedBox(height: 8),
+                  ...diffWidgets,
+                ],
+              ],
             );
-          }).toList(),
-        ),
-      ],
+          }),
+        ],
+      ),
     );
   }
 
-  Widget _buildDifferenceStatistics(
-      Map<String, Map<String, double>> diffStats, String unit) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: diffStats.entries.map((entry) {
-        final parts = entry.key.split(' vs ');
-        final keyA = parts[0];
-        final keyB = parts.length > 1 ? parts[1] : '';
-        final indexA = devicesData.indexWhere((d) => d.key == keyA);
-        final indexB = devicesData.indexWhere((d) => d.key == keyB);
-        final colorA = indexA >= 0 ? devicesData[indexA].color : Colors.grey;
-        final colorB = indexB >= 0 ? devicesData[indexB].color : Colors.grey;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
+  // ════════════════════════════════════════════════════════════
+  //  IMD TAB
+  // ════════════════════════════════════════════════════════════
+
+  Widget _buildImdTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          // Config card
+          _AppCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    _dot(colorA),
-                    const SizedBox(width: 4),
-                    Text(keyA,
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: colorA)),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.compare_arrows,
-                        size: 16, color: Colors.grey),
-                    const SizedBox(width: 8),
-                    _dot(colorB),
-                    const SizedBox(width: 4),
-                    Text(keyB,
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: colorB)),
-                  ],
+                // IMD station info
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _kImdColor.withOpacity(0.06),
+                    borderRadius: _kRadiusSm,
+                    border: Border.all(
+                        color: _kImdColor.withOpacity(0.2), width: 0.5),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.location_on_outlined,
+                          size: 14, color: _kImdColor),
+                      const SizedBox(width: 6),
+                      const Text(
+                          'IMD Station: CGDAC000 — DAV School, Chandigarh',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: _kImdColor,
+                              fontWeight: FontWeight.w500)),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildDiffStatItem('Max Diff', entry.value['maxDiff']!,
-                        unit, Colors.red, Icons.trending_up),
-                    _buildDiffStatItem('Avg Diff', entry.value['avgDiff']!,
-                        unit, Colors.blue, Icons.show_chart),
-                    _buildDiffStatItem('Min Diff', entry.value['minDiff']!,
-                        unit, Colors.green, Icons.trending_down),
-                  ],
+                const SizedBox(height: 16),
+                _SensorSelectorWidget(
+                  sensors: _imdSensors,
+                  onAdd: (entry) {
+                    if (_imdSensors.contains(entry)) {
+                      _snack('${entry.label} already added');
+                      return;
+                    }
+                    setState(() => _imdSensors.add(entry));
+                  },
+                  onRemove: (entry) {
+                    if (_imdSensors.length <= 1) {
+                      _snack('At least one sensor required');
+                      return;
+                    }
+                    setState(() {
+                      _imdSensors.remove(entry);
+                      _imdRawData.remove(entry.key);
+                      _imdBucketedData.remove(entry.key);
+                    });
+                  },
+                ),
+                const SizedBox(height: 18),
+                const Divider(color: _kBorder, thickness: 0.5),
+                const SizedBox(height: 14),
+                _DateRangeSelector(
+                  startDate: _imdStart,
+                  endDate: _imdEnd,
+                  onPickStart: () => _pickDate(true, imd: true),
+                  onPickEnd: () => _pickDate(false, imd: true),
+                ),
+                const SizedBox(height: 18),
+                const Divider(color: _kBorder, thickness: 0.5),
+                const SizedBox(height: 14),
+                const _SectionLabel('Parameters'),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: IMDCompareParameter.values.map((p) {
+                    final sel = _imdParams.contains(p);
+                    return _ParamChip(
+                      label: imdParamLabel(p),
+                      selected: sel,
+                      onTap: () => setState(() {
+                        if (sel) {
+                          if (_imdParams.length > 1)
+                            _imdParams.remove(p);
+                          else
+                            _snack('At least one parameter required');
+                        } else {
+                          _imdParams.add(p);
+                        }
+                      }),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _kImdColor,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(borderRadius: _kRadiusSm),
+                    ),
+                    onPressed: _imdLoading ? null : _fetchImdData,
+                    icon: _imdLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.sync, size: 18),
+                    label: Text(_imdLoading ? 'Loading...' : 'Fetch & Compare',
+                        style: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w500)),
+                  ),
                 ),
               ],
             ),
           ),
-        );
-      }).toList(),
+
+          if (_imdError != null) ...[
+            const SizedBox(height: 12),
+            _ErrorBanner(_imdError!),
+          ],
+
+          if (!_imdLoading && _imdData.isNotEmpty && _imdGlobalMin != null) ...[
+            const SizedBox(height: 16),
+            ..._imdParams.map((p) {
+              final globalMin = _imdGlobalMin!;
+              final unit = imdParamUnit(p);
+
+              double imdVal(IMDData d) {
+                switch (p) {
+                  case IMDCompareParameter.temperature:
+                    return d.currTemp;
+                  case IMDCompareParameter.humidity:
+                    return d.relativeHumidity;
+                  case IMDCompareParameter.pressure:
+                    return d.mslp;
+                  case IMDCompareParameter.windSpeed:
+                    return d.windSpeed;
+                  case IMDCompareParameter.windDirection:
+                    return d.windDirection;
+                }
+              }
+
+              double sensorVal(WeatherData d) {
+                switch (p) {
+                  case IMDCompareParameter.temperature:
+                    return d.currentTemperature;
+                  case IMDCompareParameter.humidity:
+                    return d.currentHumidity;
+                  case IMDCompareParameter.pressure:
+                    return d.atmPressure;
+                  case IMDCompareParameter.windSpeed:
+                    return d.windSpeed;
+                  case IMDCompareParameter.windDirection:
+                    return d.windDirection;
+                }
+              }
+
+              final imdSpots = _imdData
+                  .map((d) => FlSpot(
+                      d.timeStamp.difference(globalMin).inSeconds / 60.0,
+                      imdVal(d)))
+                  .toList();
+              final lineBars = [
+                LineChartBarData(
+                    spots: imdSpots,
+                    isCurved: true,
+                    color: _kImdColor,
+                    barWidth: 3,
+                    dotData: const FlDotData(show: false)),
+                ..._imdSensors.asMap().entries.map((e) {
+                  final bucketed = _imdBucketedData[e.value.key] ?? [];
+                  final spots = bucketed
+                      .map((d) => FlSpot(
+                          d.timeStamp.difference(globalMin).inSeconds / 60.0,
+                          sensorVal(d)))
+                      .toList();
+                  return LineChartBarData(
+                      spots: spots,
+                      isCurved: true,
+                      color: ColorPalette.getColor(e.key),
+                      barWidth: 2.5,
+                      dotData: const FlDotData(show: false));
+                }),
+              ];
+
+              final legend = [
+                (label: 'IMD', color: _kImdColor),
+                ..._imdSensors.asMap().entries.map((e) => (
+                      label: e.value.label,
+                      color: ColorPalette.getColor(e.key)
+                    )),
+              ];
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: _ChartWidget(
+                  title: imdParamLabel(p),
+                  lineBars: lineBars,
+                  legend: legend,
+                  globalMin: globalMin,
+                  totalMinutes: _imdTotalMinutes,
+                  getTooltipItems: (spots) => spots.asMap().entries.map((e) {
+                    final spot = e.value;
+                    final isImd = spot.barIndex == 0;
+                    final color = isImd
+                        ? _kImdColor
+                        : ColorPalette.getColor(spot.barIndex - 1);
+                    final label = isImd
+                        ? 'IMD'
+                        : (spot.barIndex - 1 < _imdSensors.length
+                            ? _imdSensors[spot.barIndex - 1].label
+                            : 'Sensor');
+                    final t =
+                        globalMin.add(Duration(seconds: (spot.x * 60).round()));
+                    String diffText = '';
+                    if (spots.length == 2 && e.key == spots.length - 1) {
+                      diffText =
+                          '\nΔ ${(spots[0].y - spots[1].y).abs().toStringAsFixed(1)} $unit';
+                    }
+                    return LineTooltipItem(
+                      '${DateFormat('dd/MM HH:mm').format(t)}\n$label: ${spot.y.toStringAsFixed(1)} $unit$diffText',
+                      TextStyle(
+                          color: color,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600),
+                    );
+                  }).toList(),
+                ),
+              );
+            }),
+
+            // IMD Stats
+            _buildImdStats(),
+          ],
+          const SizedBox(height: 24),
+        ],
+      ),
     );
   }
 
-  Widget _dot(Color color) => Container(
-      width: 12,
-      height: 12,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle));
-
-  Widget _buildDiffStatItem(
-      String label, double value, String unit, Color color, IconData icon) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 24),
-        const SizedBox(height: 4),
-        Text(label,
-            style: const TextStyle(fontSize: 10, color: Colors.grey),
-            textAlign: TextAlign.center),
-        const SizedBox(height: 2),
-        Text(
-          '${value.toStringAsFixed(2)} $unit',
-          style: TextStyle(
-              fontSize: 13, fontWeight: FontWeight.bold, color: color),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildWindDirectionInfo() {
-    if (devicesData.isEmpty) return const SizedBox.shrink();
-    return Column(
-      children: [
-        const Text(
-          'Current Wind Direction',
-          style: TextStyle(
-              fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 16,
-          runSpacing: 16,
-          alignment: WrapAlignment.center,
-          children: devicesData.map((device) {
-            if (device.data.isEmpty) return const SizedBox.shrink();
-            return _buildWindDirectionItem(
-              device.label,
-              device.data.last.windDirection,
-              device.color,
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildWindDirectionItem(String label, double degrees, Color color) {
-    return Column(
-      children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: color, width: 2),
-          ),
-          child: Column(
+  Widget _buildImdStats() {
+    return _AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Text(
-                getWindArrow(degrees),
-                style: TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                    height: 1.0),
-              ),
-              const SizedBox(height: 4),
-              Text(degreesToDirection(degrees),
+              const Icon(Icons.analytics_outlined, size: 16, color: _kImdColor),
+              const SizedBox(width: 8),
+              const Text('Statistical Summary',
                   style: TextStyle(
-                      fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-              Text('${degrees.toStringAsFixed(1)}°',
-                  style: TextStyle(fontSize: 12, color: color)),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: _kTextPrimary)),
+              const Spacer(),
+              Text('${_imdData.length} IMD points',
+                  style: const TextStyle(fontSize: 11, color: _kTextTertiary)),
             ],
           ),
-        ),
-      ],
-    );
-  }
+          ..._imdParams.map((p) {
+            final unit = imdParamUnit(p);
 
-  @override
-  void dispose() {
-    newDeviceController.dispose();
-    super.dispose();
+            double imdVal(IMDData d) {
+              switch (p) {
+                case IMDCompareParameter.temperature:
+                  return d.currTemp;
+                case IMDCompareParameter.humidity:
+                  return d.relativeHumidity;
+                case IMDCompareParameter.pressure:
+                  return d.mslp;
+                case IMDCompareParameter.windSpeed:
+                  return d.windSpeed;
+                case IMDCompareParameter.windDirection:
+                  return d.windDirection;
+              }
+            }
+
+            double sensorVal(WeatherData d) {
+              switch (p) {
+                case IMDCompareParameter.temperature:
+                  return d.currentTemperature;
+                case IMDCompareParameter.humidity:
+                  return d.currentHumidity;
+                case IMDCompareParameter.pressure:
+                  return d.atmPressure;
+                case IMDCompareParameter.windSpeed:
+                  return d.windSpeed;
+                case IMDCompareParameter.windDirection:
+                  return d.windDirection;
+              }
+            }
+
+            final imdStats = _stats(_imdData.map(imdVal).toList());
+            DateTime roundTs(DateTime dt) =>
+                DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute);
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _sectionDivider(imdParamLabel(p)),
+                // IMD
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                  color: _kImdColor, shape: BoxShape.circle)),
+                          const SizedBox(width: 6),
+                          const Text('IMD',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: _kImdColor)),
+                        ]),
+                        const SizedBox(height: 6),
+                        Row(children: [
+                          Expanded(
+                              child: _MetricCard(
+                                  label: 'Max',
+                                  value:
+                                      '${imdStats['max']!.toStringAsFixed(1)} $unit',
+                                  color: const Color(0xFFDC2626))),
+                          const SizedBox(width: 8),
+                          Expanded(
+                              child: _MetricCard(
+                                  label: 'Avg',
+                                  value:
+                                      '${imdStats['avg']!.toStringAsFixed(1)} $unit',
+                                  color: const Color(0xFF2563EB))),
+                          const SizedBox(width: 8),
+                          Expanded(
+                              child: _MetricCard(
+                                  label: 'Min',
+                                  value:
+                                      '${imdStats['min']!.toStringAsFixed(1)} $unit',
+                                  color: const Color(0xFF16A34A))),
+                        ]),
+                      ]),
+                ),
+                // Per sensor + diff
+                ..._imdSensors.asMap().entries.map((e) {
+                  final sensor = e.value;
+                  final color = ColorPalette.getColor(e.key);
+                  final bucketed = _imdBucketedData[sensor.key] ?? [];
+                  final swMap = {
+                    for (final d in bucketed) roundTs(d.timeStamp): d
+                  };
+                  final swVals = <double>[];
+                  final diffs = <double>[];
+                  for (final imd in _imdData) {
+                    final sw = swMap[roundTs(imd.timeStamp)];
+                    if (sw != null) {
+                      swVals.add(sensorVal(sw));
+                      diffs.add((imdVal(imd) - sensorVal(sw)).abs());
+                    }
+                  }
+                  final ss = _stats(swVals);
+                  final ds = _stats(diffs);
+                  if (ss.isEmpty) return const SizedBox.shrink();
+                  return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(children: [
+                                  Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                          color: color,
+                                          shape: BoxShape.circle)),
+                                  const SizedBox(width: 6),
+                                  Text(sensor.label,
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                          color: color)),
+                                ]),
+                                const SizedBox(height: 6),
+                                Row(children: [
+                                  Expanded(
+                                      child: _MetricCard(
+                                          label: 'Max',
+                                          value:
+                                              '${ss['max']!.toStringAsFixed(1)} $unit',
+                                          color: const Color(0xFFDC2626))),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                      child: _MetricCard(
+                                          label: 'Avg',
+                                          value:
+                                              '${ss['avg']!.toStringAsFixed(1)} $unit',
+                                          color: const Color(0xFF2563EB))),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                      child: _MetricCard(
+                                          label: 'Min',
+                                          value:
+                                              '${ss['min']!.toStringAsFixed(1)} $unit',
+                                          color: const Color(0xFF16A34A))),
+                                ]),
+                              ]),
+                        ),
+                        if (ds.isNotEmpty)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF9FAFB),
+                              borderRadius: _kRadiusSm,
+                              border: Border.all(color: _kBorder, width: 0.5),
+                            ),
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(children: [
+                                    const Icon(Icons.compare_arrows,
+                                        size: 13, color: _kTextTertiary),
+                                    const SizedBox(width: 5),
+                                    Text('|IMD − ${sensor.label}|',
+                                        style: const TextStyle(
+                                            fontSize: 11,
+                                            color: _kTextSecondary,
+                                            fontWeight: FontWeight.w500)),
+                                  ]),
+                                  const SizedBox(height: 8),
+                                  Row(children: [
+                                    Expanded(
+                                        child: _MetricCard(
+                                            label: 'Max Δ',
+                                            value:
+                                                '${ds['max']!.toStringAsFixed(2)} $unit',
+                                            color: const Color(0xFFDC2626))),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                        child: _MetricCard(
+                                            label: 'Avg Δ',
+                                            value:
+                                                '${ds['avg']!.toStringAsFixed(2)} $unit',
+                                            color: const Color(0xFF9333EA))),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                        child: _MetricCard(
+                                            label: 'Min Δ',
+                                            value:
+                                                '${ds['min']!.toStringAsFixed(2)} $unit',
+                                            color: const Color(0xFF0D9488))),
+                                  ]),
+                                ]),
+                          ),
+                      ]);
+                }),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
   }
 }
 
-/// =======================
-/// CUSTOM GESTURE RECOGNIZER
-/// =======================
-class _PanZoomGestureRecognizer extends ScaleGestureRecognizer {
+// ════════════════════════════════════════════════════════════
+//  SMALL SHARED WIDGETS
+// ════════════════════════════════════════════════════════════
+
+class _ParamChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _ParamChip(
+      {required this.label, required this.selected, required this.onTap});
+
   @override
-  void rejectGesture(int pointer) {
-    acceptGesture(pointer);
-  }
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: selected ? _kPrimaryLight : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+                color: selected ? _kPrimary.withOpacity(0.5) : _kBorder,
+                width: 0.5),
+          ),
+          child: Text(label,
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                  color: selected ? _kPrimary : _kTextSecondary)),
+        ),
+      );
+}
+
+class _ErrorBanner extends StatelessWidget {
+  final String message;
+  const _ErrorBanner(this.message);
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFEF2F2),
+          borderRadius: _kRadiusSm,
+          border: Border.all(color: const Color(0xFFFECACA), width: 0.5),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.error_outline, size: 16, color: Color(0xFFDC2626)),
+            const SizedBox(width: 8),
+            Expanded(
+                child: Text(message,
+                    style: const TextStyle(
+                        fontSize: 12, color: Color(0xFF991B1B)))),
+          ],
+        ),
+      );
 }
