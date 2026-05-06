@@ -1826,11 +1826,18 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
               }
             }
 
+            final isWind = p == WeatherParameter.windDirection;
+
             final statRows = <Widget>[];
             for (int i = 0; i < _devicesData.length; i++) {
               final d = _devicesData[i];
               final s = _stats(vals[d.key] ?? []);
               if (s.isEmpty) continue;
+              // Latest wind direction reading for this device
+              final latestWind = isWind && d.data.isNotEmpty
+                  ? d.data.last.windDirection
+                  : null;
+
               statRows.add(Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: Column(
@@ -1869,6 +1876,14 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                               value: '${s['min']!.toStringAsFixed(1)} $unit',
                               color: const Color(0xFF16A34A))),
                     ]),
+                    if (isWind && latestWind != null) ...[
+                      const SizedBox(height: 8),
+                      _WindDirectionCard(
+                        label: 'Current',
+                        degrees: latestWind,
+                        color: d.color,
+                      ),
+                    ],
                   ],
                 ),
               ));
@@ -2279,6 +2294,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
             }
 
             final imdStats = _stats(_imdData.map(imdVal).toList());
+            final isWind = p == IMDCompareParameter.windDirection;
             DateTime roundTs(DateTime dt) =>
                 DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute);
 
@@ -2328,6 +2344,14 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                                       '${imdStats['min']!.toStringAsFixed(1)} $unit',
                                   color: const Color(0xFF16A34A))),
                         ]),
+                        if (isWind && _imdData.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          _WindDirectionCard(
+                            label: 'Current (IMD)',
+                            degrees: _imdData.last.windDirection,
+                            color: _kImdColor,
+                          ),
+                        ],
                       ]),
                 ),
                 // Per sensor + diff
@@ -2350,6 +2374,10 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                   final ss = _stats(swVals);
                   final ds = _stats(diffs);
                   if (ss.isEmpty) return const SizedBox.shrink();
+                  // Latest bucketed wind for this sensor
+                  final latestBucketedWind = isWind && bucketed.isNotEmpty
+                      ? bucketed.last.windDirection
+                      : null;
                   return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -2395,6 +2423,14 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                                               '${ss['min']!.toStringAsFixed(1)} $unit',
                                           color: const Color(0xFF16A34A))),
                                 ]),
+                                if (isWind && latestBucketedWind != null) ...[
+                                  const SizedBox(height: 8),
+                                  _WindDirectionCard(
+                                    label: 'Current (${sensor.label})',
+                                    degrees: latestBucketedWind,
+                                    color: color,
+                                  ),
+                                ],
                               ]),
                         ),
                         if (ds.isNotEmpty)
@@ -2458,6 +2494,54 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
 // ════════════════════════════════════════════════════════════
 //  SMALL SHARED WIDGETS
 // ════════════════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════════
+//  WIND DIRECTION CARD
+// ════════════════════════════════════════════════════════════
+
+class _WindDirectionCard extends StatelessWidget {
+  final String label;
+  final double degrees;
+  final Color color;
+
+  const _WindDirectionCard({
+    required this.label,
+    required this.degrees,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final direction = degreesToDirection(degrees);
+    final angle = degrees * 3.14159265358979 / 180.0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.06),
+        borderRadius: _kRadiusSm,
+        border: Border.all(color: color.withOpacity(0.25), width: 0.5),
+      ),
+      child: Column(
+        children: [
+          Text(label,
+              style: const TextStyle(fontSize: 10, color: _kTextTertiary)),
+          const SizedBox(height: 8),
+          Transform.rotate(
+            angle: angle,
+            child: Icon(Icons.navigation, size: 28, color: color),
+          ),
+          const SizedBox(height: 6),
+          Text(direction,
+              style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w700, color: color)),
+          const SizedBox(height: 2),
+          Text('${degrees.toStringAsFixed(1)}°',
+              style: TextStyle(fontSize: 11, color: color.withOpacity(0.7))),
+        ],
+      ),
+    );
+  }
+}
 
 class _ParamChip extends StatelessWidget {
   final String label;
