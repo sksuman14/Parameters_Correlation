@@ -346,18 +346,20 @@ class TimestampMatcher {
 
 class ColorPalette {
   static const List<Color> chartColors = [
-    Color(0xFF00D4B8), // Teal/Cyan
-    Color(0xFFFFB020), // Amber
-    Color(0xFF6C8EEF), // Periwinkle blue
-    Color(0xFFFF6B6B), // Coral red
-    Color(0xFF98D46B), // Lime green
-    Color(0xFFE07FFF), // Violet
-    Color(0xFF4ECDC4), // Turquoise
-    Color(0xFFFFE66D), // Yellow
-    Color(0xFFFF8C42), // Orange
-    Color(0xFF00B4D8), // Sky blue
-    Color(0xFFA8DADC), // Pale teal
-    Color(0xFFFF4D6D), // Pink-red
+    Color(0xFF00E5FF), // Vivid Cyan
+    Color(0xFFFF8F00), // Electric Orange
+    Color(0xFFFF00FF), // Neon Pink
+    Color(0xFFFFFF00), // Bright Yellow
+    Color(0xFF2979FF), // Brilliant Blue
+    Color(0xFF00E676), // Screaming Green
+    Color(0xFFFF1744), // Sunset Red
+    Color(0xFFD500F9), // Vivid Purple
+    Color(0xFFFFAB00), // Deep Amber
+    Color(0xFF00B0FF), // Sky Cyan
+    Color(0xFFAEEA00), // Lime Accent
+    Color(0xFF3D5AFE), // Indigo Accent
+    Color(0xFFFF3D00), // Deep Orange
+    Color(0xFF1DE9B6), // Teal Accent
   ];
   static Color getColor(int index) => chartColors[index % chartColors.length];
 }
