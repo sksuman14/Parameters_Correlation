@@ -252,6 +252,37 @@ String getWindArrow(double degrees) {
   if (n < 326.25) return '↘';
   return '↘';
 }
+const int _kCorrectionWindowSize = 72;
+const double _kCorrectionSlope = 0.282;
+const double _kCorrectionIntercept = -0.565;
+
+List<double> applyThermalCorrection(List<WeatherData> data) {
+  final result = <double>[];
+  for (int i = 0; i < data.length; i++) {
+    final start = (i - _kCorrectionWindowSize + 1).clamp(0, i);
+    double rollingMin = data[i].currentTemperature;
+    for (int j = start; j <= i; j++) {
+      if (data[j].currentTemperature < rollingMin) {
+        rollingMin = data[j].currentTemperature;
+      }
+    }
+    final heatAcc = data[i].currentTemperature - rollingMin;
+    final correction = _kCorrectionSlope * heatAcc + _kCorrectionIntercept;
+    
+    // Corrected value raw se zyada neeche mat jaaye
+    final corrected = data[i].currentTemperature - correction;
+    result.add(corrected < data[i].currentTemperature - 4.0
+        ? data[i].currentTemperature - 4.0
+        : corrected);
+  }
+  return result;
+}
+/// True if this device is CP 39 (the one with enclosure heat-trap issue).
+bool isCp39(DeviceData d) =>
+    d.sensorType == SensorType.cp && d.deviceId == 39;
+
+/// Accent color for the corrected series line.
+const Color _kCorrectedColor = Color(0xFF3FB950); // same as _kGreen
 
 // ════════════════════════════════════════════════════════════
 //  SENSOR ENTRY
@@ -286,11 +317,19 @@ class DeviceData {
   final List<WeatherData> data;
   final Color color;
 
-  DeviceData(
-      {required this.deviceId,
-      required this.sensorType,
-      required this.data,
-      required this.color});
+  /// Sorted copy + precomputed corrected temperatures (for CP 39 only).
+  late final List<WeatherData> sortedData;
+  late final List<double>? correctedTemperatures;
+
+  DeviceData({
+    required this.deviceId,
+    required this.sensorType,
+    required this.data,
+    required this.color,
+  }) {
+    sortedData = [...data]..sort((a, b) => a.timeStamp.compareTo(b.timeStamp));
+    correctedTemperatures = isCp39(this) ? applyThermalCorrection(sortedData) : null;
+  }
 
   String get key => '${sensorTypeLabel(sensorType)}_$deviceId';
   String get label => '${sensorTypeLabel(sensorType)} Device $deviceId';
@@ -346,20 +385,20 @@ class TimestampMatcher {
 
 class ColorPalette {
   static const List<Color> chartColors = [
-    Color(0xFF00E5FF), // Vivid Cyan
-    Color(0xFFFF8F00), // Electric Orange
-    Color(0xFFFF00FF), // Neon Pink
-    Color(0xFFFFFF00), // Bright Yellow
-    Color(0xFF2979FF), // Brilliant Blue
-    Color(0xFF00E676), // Screaming Green
-    Color(0xFFFF1744), // Sunset Red
-    Color(0xFFD500F9), // Vivid Purple
-    Color(0xFFFFAB00), // Deep Amber
-    Color(0xFF00B0FF), // Sky Cyan
-    Color(0xFFAEEA00), // Lime Accent
-    Color(0xFF3D5AFE), // Indigo Accent
-    Color(0xFFFF3D00), // Deep Orange
-    Color(0xFF1DE9B6), // Teal Accent
+    Color(0xFF00E5FF),
+    Color(0xFFFF8F00),
+    Color(0xFFFF00FF),
+    Color(0xFFFFFF00),
+    Color(0xFF2979FF),
+    Color(0xFF00E676),
+    Color(0xFFFF1744),
+    Color(0xFFD500F9),
+    Color(0xFFFFAB00),
+    Color(0xFF00B0FF),
+    Color(0xFFAEEA00),
+    Color(0xFF3D5AFE),
+    Color(0xFFFF3D00),
+    Color(0xFF1DE9B6),
   ];
   static Color getColor(int index) => chartColors[index % chartColors.length];
 }
@@ -517,29 +556,22 @@ class _PanZoomGestureRecognizer extends ScaleGestureRecognizer {
 }
 
 // ════════════════════════════════════════════════════════════
-//  DESIGN TOKENS — Dark Precision Instrument Theme
+//  DESIGN TOKENS
 // ════════════════════════════════════════════════════════════
 
-// Core palette
-const _kBg = Color(0xFF0D1117); // Near-black base
-const _kSurface = Color(0xFF161B22); // Card surface
-const _kSurfaceElevated = Color(0xFF1C2333); // Elevated cards
-const _kBorder = Color(0xFF30363D); // Subtle borders
-const _kBorderAccent = Color(0xFF3D4A5C); // Slightly visible borders
-
-// Accent colors
-const _kPrimary = Color(0xFF00D4B8); // Teal primary
-const _kPrimaryDim = Color(0xFF00D4B820); // Teal with alpha
-const _kImdColor = Color(0xFF6C8EEF); // Periwinkle for IMD
+const _kBg = Color(0xFF0D1117);
+const _kSurface = Color(0xFF161B22);
+const _kSurfaceElevated = Color(0xFF1C2333);
+const _kBorder = Color(0xFF30363D);
+const _kBorderAccent = Color(0xFF3D4A5C);
+const _kPrimary = Color(0xFF00D4B8);
+const _kPrimaryDim = Color(0xFF00D4B820);
+const _kImdColor = Color(0xFF6C8EEF);
 const _kImdDim = Color(0xFF6C8EEF20);
-
-// Text
 const _kTextPrimary = Color(0xFFE6EDF3);
 const _kTextSecondary = Color(0xFF8B949E);
 const _kTextTertiary = Color(0xFF484F58);
-const _kTextMono = Color(0xFF00D4B8); // Monospaced numeric color
-
-// Status colors
+const _kTextMono = Color(0xFF00D4B8);
 const _kRed = Color(0xFFFF6B6B);
 const _kGreen = Color(0xFF3FB950);
 const _kAmber = Color(0xFFFFB020);
@@ -550,10 +582,9 @@ const _kRadiusSm = BorderRadius.all(Radius.circular(7));
 const _kRadiusXs = BorderRadius.all(Radius.circular(4));
 
 // ════════════════════════════════════════════════════════════
-//  SHARED WIDGETS — Redesigned
+//  SHARED WIDGETS
 // ════════════════════════════════════════════════════════════
 
-/// Overline label — small uppercase tracking
 class _SectionLabel extends StatelessWidget {
   final String text;
   const _SectionLabel(this.text);
@@ -584,7 +615,6 @@ class _SectionLabel extends StatelessWidget {
       );
 }
 
-/// Base card with dark surface
 class _AppCard extends StatelessWidget {
   final Widget child;
   final EdgeInsets? padding;
@@ -596,17 +626,13 @@ class _AppCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: _kSurface,
           borderRadius: _kRadius,
-          border: Border.all(
-            color: borderColor ?? _kBorder,
-            width: 1,
-          ),
+          border: Border.all(color: borderColor ?? _kBorder, width: 1),
         ),
         padding: padding ?? const EdgeInsets.all(20),
         child: child,
       );
 }
 
-/// Metric display card — stat number
 class _MetricCard extends StatelessWidget {
   final String label;
   final String value;
@@ -638,7 +664,7 @@ class _MetricCard extends StatelessWidget {
             const SizedBox(height: 5),
             Text(
               value,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
                 color: _kTextPrimary,
@@ -651,7 +677,6 @@ class _MetricCard extends StatelessWidget {
       );
 }
 
-/// Sensor chip — pill with type badge
 class _SensorChip extends StatelessWidget {
   final SensorEntry sensor;
   final Color color;
@@ -715,25 +740,31 @@ class _SensorChip extends StatelessWidget {
       );
 }
 
-Widget _legendDot(String label, Color color) => Row(
+Widget _legendDot(String label, Color color, {bool dashed = false}) => Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 20,
-          height: 2,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(1),
+        if (dashed)
+          Row(children: [
+            Container(width: 6, height: 2, color: color),
+            const SizedBox(width: 3),
+            Container(width: 6, height: 2, color: color),
+            const SizedBox(width: 3),
+            Container(width: 4, height: 2, color: color),
+          ])
+        else
+          Container(
+            width: 20,
+            height: 2,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(1),
+            ),
           ),
-        ),
         const SizedBox(width: 5),
         Container(
           width: 5,
           height: 5,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 5),
         Text(
@@ -772,12 +803,122 @@ Widget _sectionDivider(String label) => Padding(
             ),
           ),
           const SizedBox(width: 10),
-          const Expanded(
-            child: Divider(color: _kBorder, thickness: 1),
+          const Expanded(child: Divider(color: _kBorder, thickness: 1)),
+        ],
+      ),
+    );
+
+// ════════════════════════════════════════════════════════════
+//  CORRECTION TOGGLE WIDGET  ← NEW
+// ════════════════════════════════════════════════════════════
+
+class _CorrectionToggle extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _CorrectionToggle({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: value
+            ? _kCorrectedColor.withOpacity(0.07)
+            : _kBg,
+        borderRadius: _kRadiusSm,
+        border: Border.all(
+          color: value
+              ? _kCorrectedColor.withOpacity(0.4)
+              : _kBorderAccent,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          // Icon area
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: (value ? _kCorrectedColor : _kTextTertiary).withOpacity(0.12),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(
+              Icons.auto_fix_high_outlined,
+              size: 14,
+              color: value ? _kCorrectedColor : _kTextTertiary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Text area
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Thermal Correction',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: value ? _kCorrectedColor : _kTextPrimary,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _kCorrectedColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(3),
+                        border: Border.all(
+                            color: _kCorrectedColor.withOpacity(0.3),
+                            width: 1),
+                      ),
+                      child: const Text(
+                        'CP 39',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          color: _kCorrectedColor,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+               
+                if (value) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Formula: T_corr = T39 − (0.282 × heat_acc − 0.565)',
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: _kCorrectedColor.withOpacity(0.7),
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Toggle switch
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: _kCorrectedColor,
+            activeTrackColor: _kCorrectedColor.withOpacity(0.25),
+            inactiveThumbColor: _kTextTertiary,
+            inactiveTrackColor: _kBorder,
           ),
         ],
       ),
     );
+  }
+}
 
 // ════════════════════════════════════════════════════════════
 //  SENSOR SELECTOR WIDGET
@@ -833,7 +974,6 @@ class _SensorSelectorWidgetState extends State<_SensorSelectorWidget> {
         const SizedBox(height: 12),
         Row(
           children: [
-            // Type toggle
             Container(
               decoration: BoxDecoration(
                 border: Border.all(color: _kBorder),
@@ -1048,14 +1188,20 @@ class _DateRangeSelector extends StatelessWidget {
 //  CHART WIDGET
 // ════════════════════════════════════════════════════════════
 
+class _ChartLegendItem {
+  final String label;
+  final Color color;
+  final bool dashed;
+  const _ChartLegendItem(
+      {required this.label, required this.color, this.dashed = false});
+}
+
 class _ChartWidget extends StatefulWidget {
   final String title;
   final List<LineChartBarData> lineBars;
-  final List<({String label, Color color})> legend;
+  final List<_ChartLegendItem> legend;
   final DateTime globalMin;
   final double totalMinutes;
-  final Widget Function(List<LineTooltipItem?> Function(List<LineBarSpot>))?
-      tooltipBuilder;
   final List<LineTooltipItem?> Function(List<LineBarSpot>) getTooltipItems;
 
   const _ChartWidget({
@@ -1065,7 +1211,6 @@ class _ChartWidget extends StatefulWidget {
     required this.globalMin,
     required this.totalMinutes,
     required this.getTooltipItems,
-    this.tooltipBuilder,
   });
 
   @override
@@ -1313,8 +1458,9 @@ class _ChartWidgetState extends State<_ChartWidget> {
             spacing: 16,
             runSpacing: 6,
             alignment: WrapAlignment.center,
-            children:
-                widget.legend.map((l) => _legendDot(l.label, l.color)).toList(),
+            children: widget.legend
+                .map((l) => _legendDot(l.label, l.color, dashed: l.dashed))
+                .toList(),
           ),
         ],
       ),
@@ -1354,10 +1500,8 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
 
   void _snack(String msg) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(
-          msg,
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-        ),
+        content: Text(msg,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
         backgroundColor: _kSurfaceElevated,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
@@ -1384,6 +1528,9 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
   DateTime? _globalMinTime;
   double _totalMinutes = 0.0;
 
+  /// NEW: thermal correction toggle state
+  bool _showCorrected = false;
+
   // ── IMD state ─────────────────────────────────────────────────────────────
   List<SensorEntry> _imdSensors = [
     SensorEntry(deviceId: 7, sensorType: SensorType.sw)
@@ -1405,6 +1552,11 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
 
   String _fmtApi(DateTime d) => DateFormat('dd-MM-yyyy').format(d);
   String _fmtImdApi(DateTime d) => DateFormat('d-M-yyyy').format(d);
+
+  /// Returns true if any loaded device is CP 39 and temp param is selected.
+  bool get _canShowCorrection =>
+      _devicesData.any(isCp39) &&
+      _selectedParams.contains(WeatherParameter.temperature);
 
   Future<void> _pickDate(bool isStart, {bool imd = false}) async {
     final current = imd
@@ -1453,6 +1605,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
     setState(() {
       _loading = true;
       _error = null;
+      _showCorrected = false; // reset on fresh fetch
     });
     try {
       final start = _fmtApi(_startDate);
@@ -1551,17 +1704,41 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
         }
       }
 
+      // Add corrected temperature column for CP 39 if correction is active
+      final cp39Csv = csvs.where((c) =>
+          c.sensor.deviceId == 39 &&
+          c.sensor.sensorType == SensorType.cp).firstOrNull;
+      final hasCp39 = cp39Csv != null;
+
       final headers = [
         'Timestamp',
         ...orderedCols
-            .expand((col) => csvs.map((c) => '${col}_${c.sensor.key}'))
+            .expand((col) => csvs.map((c) => '${col}_${c.sensor.key}')),
+        if (hasCp39) 'CurrentTemperature_CP_39_corrected',
       ];
+
+      // Precompute correction map for CP39
+      Map<String, double> correctedMap = {};
+      if (hasCp39) {
+        final cp39Device =
+            _devicesData.where(isCp39).firstOrNull;
+        if (cp39Device != null) {
+          for (int i = 0; i < cp39Device.sortedData.length; i++) {
+            final ts = DateFormat('yyyy-MM-dd HH:mm:ss')
+                .format(cp39Device.sortedData[i].timeStamp);
+            correctedMap[ts] = cp39Device.correctedTemperatures![i];
+          }
+        }
+      }
+
       final lines = [headers.join(',')];
       for (final ts in sortedTs) {
         final cells = [
           ts,
           ...orderedCols
-              .expand((col) => csvs.map((c) => c.csv.rows[ts]?[col] ?? ''))
+              .expand((col) => csvs.map((c) => c.csv.rows[ts]?[col] ?? '')),
+          if (hasCp39)
+            correctedMap[ts]?.toStringAsFixed(2) ?? '',
         ];
         lines.add(cells.join(','));
       }
@@ -1569,7 +1746,8 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
       final sKeys = _sensors.map((s) => s.key).join('_');
       _triggerDownload(lines.join('\n'),
           'comparison_${sKeys}_${DateFormat('yyyyMMdd').format(_startDate)}_${DateFormat('yyyyMMdd').format(_endDate)}.csv');
-      _snack('Downloaded ${sortedTs.length} rows');
+      _snack('Downloaded ${sortedTs.length} rows'
+          '${hasCp39 ? ' (includes CP39 corrected temp)' : ''}');
     } catch (e) {
       _snack('Download failed: $e');
     } finally {
@@ -1788,13 +1966,11 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
             child: SafeArea(
               child: Column(
                 children: [
-                  // Top bar
                   Padding(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 10),
                     child: Row(
                       children: [
-                        // Logo mark
                         Container(
                           width: 32,
                           height: 32,
@@ -1861,7 +2037,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                       ],
                     ),
                   ),
-                  // Tab bar
                   Container(
                     decoration: const BoxDecoration(
                       border:
@@ -1910,6 +2085,12 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
   // ════════════════════════════════════════════════════════════
 
   Widget _buildSensorTab() {
+    // Check if CP 39 is in sensor list (before data is loaded, for toggle preview)
+    final cp39InList = _sensors
+        .any((s) => s.deviceId == 39 && s.sensorType == SensorType.cp);
+    final showCorrectionToggle =
+        cp39InList && _selectedParams.contains(WeatherParameter.temperature);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1936,6 +2117,11 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                       _sensors.remove(entry);
                       _devicesData.removeWhere((d) => d.key == entry.key);
                       _matched = TimestampMatcher.matchTimestamps(_devicesData);
+                      // Reset correction if CP39 removed
+                      if (entry.deviceId == 39 &&
+                          entry.sensorType == SensorType.cp) {
+                        _showCorrected = false;
+                      }
                     });
                   },
                 ),
@@ -1974,6 +2160,9 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                     );
                   }).toList(),
                 ),
+
+               
+
                 const SizedBox(height: 18),
                 Center(
                   child: _ActionButton(
@@ -1995,9 +2184,25 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
               _devicesData.isNotEmpty &&
               _globalMinTime != null) ...[
             const SizedBox(height: 16),
+
+            // Correction toggle shown inline above charts too (when data loaded)
+            if (_canShowCorrection) ...[
+              _CorrectionToggle(
+                value: _showCorrected,
+                onChanged: (v) => setState(() => _showCorrected = v),
+              ),
+              const SizedBox(height: 12),
+            ],
+
             ..._selectedParams.map((p) {
               final globalMin = _globalMinTime!;
-              final lineBars = _devicesData.map((device) {
+
+              // ── Build line bars ──────────────────────────────────────────
+              final lineBars = <LineChartBarData>[];
+              final legend = <_ChartLegendItem>[];
+
+              for (final device in _devicesData) {
+                // Raw spots (from matched timestamps for alignment)
                 final spots = <FlSpot>[];
                 for (final mp in _matched) {
                   final d = mp.deviceData[device.key];
@@ -2007,56 +2212,96 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                         getParameterValue(d, p)));
                   }
                 }
-                return LineChartBarData(
+                lineBars.add(LineChartBarData(
                     spots: spots,
                     isCurved: true,
                     color: device.color,
                     barWidth: 2,
-                    dotData: const FlDotData(show: false));
-              }).toList();
+                    dotData: const FlDotData(show: false)));
+                legend.add(_ChartLegendItem(
+                    label: '${device.label} (raw)', color: device.color));
+
+                // ── Corrected line for CP 39 + Temperature ───────────────
+                if (_showCorrected &&
+                    isCp39(device) &&
+                    p == WeatherParameter.temperature) {
+                  final corrected = <FlSpot>[];
+                  for (int i = 0; i < device.sortedData.length; i++) {
+                    corrected.add(FlSpot(
+                      device.sortedData[i]
+                              .timeStamp
+                              .difference(globalMin)
+                              .inSeconds /
+                          60.0,
+                      device.correctedTemperatures![i],
+                    ));
+                  }
+                  lineBars.add(LineChartBarData(
+                      spots: corrected,
+                      isCurved: true,
+                      color: _kCorrectedColor,
+                      barWidth: 2,
+                      dashArray: [6, 3],
+                      dotData: const FlDotData(show: false)));
+                  legend.add(const _ChartLegendItem(
+                      label: 'CP 39 — corrected',
+                      color: _kCorrectedColor,
+                      dashed: true));
+                }
+              }
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _ChartWidget(
                   title: parameterLabel(p),
                   lineBars: lineBars,
-                  legend: _devicesData
-                      .map((d) => (label: d.label, color: d.color))
-                      .toList(),
+                  legend: legend,
                   globalMin: globalMin,
                   totalMinutes: _totalMinutes,
                   getTooltipItems: (spots) => spots.asMap().entries.map((e) {
                     final spot = e.value;
-                    final idx = spot.barIndex;
-                    if (idx >= _devicesData.length) return null;
-                    final device = _devicesData[idx];
-                    WeatherData? closest;
-                    double minDiff = double.infinity;
-                    for (final d in device.data) {
-                      final el =
-                          d.timeStamp.difference(globalMin).inSeconds / 60.0;
-                      final diff = (el - spot.x).abs();
-                      if (diff < minDiff) {
-                        minDiff = diff;
-                        closest = d;
+                    // Determine whether this spot is a corrected series
+                    // Corrected bars are added right after their raw counterpart
+                    // We track by checking color
+                    final isCorrectedBar =
+                        spot.bar.color == _kCorrectedColor;
+                    final color = spot.bar.color ?? _kPrimary;
+
+                    // Find original device for label
+                    String deviceLabel;
+                    if (isCorrectedBar) {
+                      deviceLabel = 'CP 39 corrected';
+                    } else {
+                      // Map barIndex back to device (corrected bars are interleaved)
+                      int rawIdx = 0;
+                      int bi = 0;
+                      for (final device in _devicesData) {
+                        if (bi == spot.barIndex) {
+                          rawIdx = _devicesData.indexOf(device);
+                          break;
+                        }
+                        bi++;
+                        if (_showCorrected &&
+                            isCp39(device) &&
+                            p == WeatherParameter.temperature) {
+                          bi++;
+                        }
                       }
+                      deviceLabel = rawIdx < _devicesData.length
+                          ? _devicesData[rawIdx].label
+                          : 'Sensor';
                     }
-                    if (closest == null) return null;
-                    final ts =
-                        DateFormat('dd/MM HH:mm').format(closest.timeStamp);
-                    final val = getParameterValue(closest, p);
-                    String fmtVal = p == WeatherParameter.windDirection
-                        ? '${val.toStringAsFixed(1)}° (${degreesToDirection(val)}) ${getWindArrow(val)}'
-                        : val.toStringAsFixed(1);
-                    String diffText = '';
-                    if (spots.length == 2 && e.key == spots.length - 1) {
-                      diffText =
-                          '\nΔ ${(spots[0].y - spots[1].y).abs().toStringAsFixed(1)}';
-                    }
+
+                    final t = globalMin
+                        .add(Duration(seconds: (spot.x * 60).round()));
+                    final label = isCorrectedBar
+                        ? '$deviceLabel: ${spot.y.toStringAsFixed(1)}°C'
+                        : '$deviceLabel: ${spot.y.toStringAsFixed(1)} ${parameterUnit(p)}';
+
                     return LineTooltipItem(
-                      '$ts\n${device.label}: $fmtVal$diffText',
+                      '${DateFormat('dd/MM HH:mm').format(t)}\n$label',
                       TextStyle(
-                        color: device.color,
+                        color: color,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         fontFamily: 'monospace',
@@ -2133,15 +2378,21 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
             }
 
             final isWind = p == WeatherParameter.windDirection;
+            final isTemp = p == WeatherParameter.temperature;
 
             final statRows = <Widget>[];
             for (int i = 0; i < _devicesData.length; i++) {
               final d = _devicesData[i];
               final s = _stats(vals[d.key] ?? []);
               if (s.isEmpty) continue;
-              final latestWind = isWind && d.data.isNotEmpty
-                  ? d.data.last.windDirection
-                  : null;
+              final latestWind =
+                  isWind && d.data.isNotEmpty ? d.data.last.windDirection : null;
+
+              // Corrected stats for CP 39
+              Map<String, double>? corrStats;
+              if (_showCorrected && isCp39(d) && isTemp) {
+                corrStats = _stats(d.correctedTemperatures ?? []);
+              }
 
               statRows.add(Padding(
                 padding: const EdgeInsets.only(bottom: 12),
@@ -2164,6 +2415,26 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                           fontFamily: 'monospace',
                         ),
                       ),
+                      if (isCp39(d) && isTemp) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: _kBorderAccent,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: const Text(
+                            'RAW',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: _kTextSecondary,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ),
+                      ],
                     ]),
                     const SizedBox(height: 8),
                     Row(children: [
@@ -2188,16 +2459,81 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                     if (isWind && latestWind != null) ...[
                       const SizedBox(height: 8),
                       _WindDirectionCard(
-                          label: 'CURRENT',
-                          degrees: latestWind,
-                          color: d.color),
+                          label: 'CURRENT', degrees: latestWind, color: d.color),
+                    ],
+
+                    // ── Corrected stats block ────────────────────────────
+                    if (corrStats != null) ...[
+                      const SizedBox(height: 10),
+                      Row(children: [
+                        Container(
+                            width: 6,
+                            height: 6,
+                            decoration: const BoxDecoration(
+                                color: _kCorrectedColor,
+                                shape: BoxShape.circle)),
+                        const SizedBox(width: 7),
+                        const Text(
+                          'CP 39 — corrected',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _kCorrectedColor,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: _kCorrectedColor.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(3),
+                            border: Border.all(
+                                color: _kCorrectedColor.withOpacity(0.3),
+                                width: 1),
+                          ),
+                          child: const Text(
+                            'CORRECTED',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: _kCorrectedColor,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ),
+                      ]),
+                      const SizedBox(height: 8),
+                      Row(children: [
+                        Expanded(
+                            child: _MetricCard(
+                                label: 'MAX',
+                                value:
+                                    '${corrStats['max']!.toStringAsFixed(1)} $unit',
+                                color: _kRed)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                            child: _MetricCard(
+                                label: 'AVG',
+                                value:
+                                    '${corrStats['avg']!.toStringAsFixed(1)} $unit',
+                                color: _kCorrectedColor)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                            child: _MetricCard(
+                                label: 'MIN',
+                                value:
+                                    '${corrStats['min']!.toStringAsFixed(1)} $unit',
+                                color: _kGreen)),
+                      ]),
                     ],
                   ],
                 ),
               ));
             }
 
-            // Differences between pairs
+            // Differences
             final diffWidgets = <Widget>[];
             for (int i = 0; i < _devicesData.length - 1; i++) {
               for (int j = i + 1; j < _devicesData.length; j++) {
@@ -2264,19 +2600,22 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                         Expanded(
                             child: _MetricCard(
                                 label: 'MAX Δ',
-                                value: '${ds['max']!.toStringAsFixed(2)} $unit',
+                                value:
+                                    '${ds['max']!.toStringAsFixed(2)} $unit',
                                 color: _kRed)),
                         const SizedBox(width: 8),
                         Expanded(
                             child: _MetricCard(
                                 label: 'AVG Δ',
-                                value: '${ds['avg']!.toStringAsFixed(2)} $unit',
+                                value:
+                                    '${ds['avg']!.toStringAsFixed(2)} $unit',
                                 color: _kAmber)),
                         const SizedBox(width: 8),
                         Expanded(
                             child: _MetricCard(
                                 label: 'MIN Δ',
-                                value: '${ds['min']!.toStringAsFixed(2)} $unit',
+                                value:
+                                    '${ds['min']!.toStringAsFixed(2)} $unit',
                                 color: _kGreen)),
                       ]),
                     ],
@@ -2318,7 +2657,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
   }
 
   // ════════════════════════════════════════════════════════════
-  //  IMD TAB
+  //  IMD TAB  (unchanged)
   // ════════════════════════════════════════════════════════════
 
   Widget _buildImdTab() {
@@ -2331,7 +2670,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // IMD station chip
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
@@ -2515,10 +2853,10 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
               ];
 
               final legend = [
-                (label: 'IMD', color: _kImdColor),
-                ..._imdSensors.asMap().entries.map((e) => (
+                const _ChartLegendItem(label: 'IMD', color: _kImdColor),
+                ..._imdSensors.asMap().entries.map((e) => _ChartLegendItem(
                       label: e.value.label,
-                      color: ColorPalette.getColor(e.key)
+                      color: ColorPalette.getColor(e.key),
                     )),
               ];
 
@@ -2541,8 +2879,8 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                         : (spot.barIndex - 1 < _imdSensors.length
                             ? _imdSensors[spot.barIndex - 1].label
                             : 'Sensor');
-                    final t =
-                        globalMin.add(Duration(seconds: (spot.x * 60).round()));
+                    final t = globalMin
+                        .add(Duration(seconds: (spot.x * 60).round()));
                     String diffText = '';
                     if (spots.length == 2 && e.key == spots.length - 1) {
                       diffText =
@@ -2657,7 +2995,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _sectionDivider(imdParamLabel(p)),
-                // IMD row
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Column(
@@ -2711,7 +3048,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                         ],
                       ]),
                 ),
-
                 ..._imdSensors.asMap().entries.map((e) {
                   final sensor = e.value;
                   final color = ColorPalette.getColor(e.key);
@@ -2853,7 +3189,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
 }
 
 // ════════════════════════════════════════════════════════════
-//  SMALL SHARED WIDGETS — Redesigned
+//  SMALL SHARED WIDGETS
 // ════════════════════════════════════════════════════════════
 
 class _AppBarButton extends StatelessWidget {
@@ -2962,20 +3298,19 @@ class _WindDirectionCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 9,
-                  color: _kTextPrimary,
-                  letterSpacing: 1.0,
-                  fontFamily: 'monospace',
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              Text(label,
+                  style: const TextStyle(
+                    fontSize: 9,
+                    color: _kTextPrimary,
+                    letterSpacing: 1.0,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w600,
+                  )),
               const SizedBox(height: 6),
               Transform.rotate(
                 angle: angle,
-                child: Icon(Icons.navigation, size: 30, color: _kTextPrimary),
+                child:
+                    Icon(Icons.navigation, size: 30, color: _kTextPrimary),
               ),
             ],
           ),
@@ -2983,24 +3318,20 @@ class _WindDirectionCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                direction,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: _kTextPrimary,
-                  fontFamily: 'monospace',
-                  letterSpacing: -0.5,
-                ),
-              ),
-              Text(
-                '${degrees.toStringAsFixed(1)}°',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: _kTextPrimary.withOpacity(0.6),
-                  fontFamily: 'monospace',
-                ),
-              ),
+              Text(direction,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: _kTextPrimary,
+                    fontFamily: 'monospace',
+                    letterSpacing: -0.5,
+                  )),
+              Text('${degrees.toStringAsFixed(1)}°',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _kTextPrimary.withOpacity(0.6),
+                    fontFamily: 'monospace',
+                  )),
             ],
           ),
         ],
@@ -3070,18 +3401,17 @@ class _ErrorBanner extends StatelessWidget {
                 color: _kRed.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Icon(Icons.error_outline, size: 14, color: _kRed),
+              child:
+                  const Icon(Icons.error_outline, size: 14, color: _kRed),
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: _kRed,
-                  fontFamily: 'monospace',
-                ),
-              ),
+              child: Text(message,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: _kRed,
+                    fontFamily: 'monospace',
+                  )),
             ),
           ],
         ),
