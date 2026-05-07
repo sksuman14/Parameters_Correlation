@@ -253,8 +253,6 @@ String getWindArrow(double degrees) {
   return '↘';
 }
 const int _kCorrectionWindowSize = 72;
-const double _kCorrectionSlope = 0.282;
-const double _kCorrectionIntercept = -0.565;
 
 List<double> applyThermalCorrection(List<WeatherData> data) {
   final result = <double>[];
@@ -266,13 +264,18 @@ List<double> applyThermalCorrection(List<WeatherData> data) {
         rollingMin = data[j].currentTemperature;
       }
     }
-    final heatAcc = data[i].currentTemperature - rollingMin;
-    final correction = _kCorrectionSlope * heatAcc + _kCorrectionIntercept;
-    
-    // Corrected value raw se zyada neeche mat jaaye
+
+    final heatAcc  = data[i].currentTemperature - rollingMin;
+    final humidity = data[i].currentHumidity;
+
+    // Multi-feature correction
+    final correction = 0.221 * heatAcc 
+                     + (-0.023) * humidity 
+                     + 1.046;
+
     final corrected = data[i].currentTemperature - correction;
-    result.add(corrected < data[i].currentTemperature - 4.0
-        ? data[i].currentTemperature - 4.0
+    result.add(corrected < data[i].currentTemperature - 6.0
+        ? data[i].currentTemperature - 6.0
         : corrected);
   }
   return result;
@@ -890,17 +893,7 @@ class _CorrectionToggle extends StatelessWidget {
                   ],
                 ),
                
-                if (value) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Formula: T_corr = T39 − (0.282 × heat_acc − 0.565)',
-                    style: TextStyle(
-                      fontSize: 9,
-                      color: _kCorrectedColor.withOpacity(0.7),
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                ],
+             
               ],
             ),
           ),
