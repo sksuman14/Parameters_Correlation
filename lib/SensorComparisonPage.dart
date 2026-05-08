@@ -252,12 +252,36 @@ String getWindArrow(double degrees) {
   if (n < 326.25) return '↘';
   return '↘';
 }
-const int _kCorrectionWindowSize = 72;
+
+int _detectIntervalMinutes(List<WeatherData> data) {
+  if (data.length < 2) return 5; // default
+  
+ 
+  final diffs = <int>[];
+  for (int i = 1; i < data.length && i <= 10; i++) {
+    final diff = data[i].timeStamp
+        .difference(data[i - 1].timeStamp)
+        .inMinutes
+        .abs();
+    if (diff > 0) diffs.add(diff);
+  }
+  if (diffs.isEmpty) return 5;
+  diffs.sort();
+  return diffs[diffs.length ~/ 2]; // median
+}
+const int _kCorrectionWindowHours = 6; 
 
 List<double> applyThermalCorrection(List<WeatherData> data) {
   final result = <double>[];
+  if (data.isEmpty) return result;
+
+  final intervalMinutes = _detectIntervalMinutes(data);
+  final windowSize = (_kCorrectionWindowHours * 60 / intervalMinutes)
+      .round()
+      .clamp(6, 500); 
+
   for (int i = 0; i < data.length; i++) {
-    final start = (i - _kCorrectionWindowSize + 1).clamp(0, i);
+    final start = (i - windowSize + 1).clamp(0, i);
     double rollingMin = data[i].currentTemperature;
     for (int j = start; j <= i; j++) {
       if (data[j].currentTemperature < rollingMin) {
@@ -268,9 +292,8 @@ List<double> applyThermalCorrection(List<WeatherData> data) {
     final heatAcc  = data[i].currentTemperature - rollingMin;
     final humidity = data[i].currentHumidity;
 
-    // Multi-feature correction
-    final correction = 0.221 * heatAcc 
-                     + (-0.023) * humidity 
+    final correction = 0.221 * heatAcc
+                     + (-0.023) * humidity
                      + 1.046;
 
     final corrected = data[i].currentTemperature - correction;
