@@ -43,6 +43,7 @@ class WeatherData {
   final double windSpeed;
   final double rainfallHourly;
   final double windDirection;
+  final double lightIntensity;
 
   WeatherData({
     required this.timeStamp,
@@ -52,6 +53,7 @@ class WeatherData {
     required this.windSpeed,
     required this.rainfallHourly,
     required this.windDirection,
+    required this.lightIntensity,
   });
 
   factory WeatherData.fromJson(Map<String, dynamic> json) {
@@ -89,6 +91,7 @@ class WeatherData {
     }
 
     return WeatherData(
+<<<<<<< HEAD
       timeStamp: parsedDate,
       atmPressure: parseD(
           json['AtmPressure'] ?? json['pressure'] ?? json['now_pressure']),
@@ -100,6 +103,16 @@ class WeatherData {
       rainfallHourly: parseD(json['RainfallHourly'] ?? json['rainfall']),
       windDirection:
           parseD(json['WindDirection'] ?? json['now_wind_direction']),
+=======
+      timeStamp: DateTime.parse(normTs),
+      atmPressure: (json['AtmPressure'] ?? 0).toDouble(),
+      currentTemperature: (json['CurrentTemperature'] ?? 0).toDouble(),
+      currentHumidity: (json['CurrentHumidity'] ?? 0).toDouble(),
+      windSpeed: (json['WindSpeed'] ?? 0).toDouble(),
+      rainfallHourly: (json['RainfallHourly'] ?? 0).toDouble(),
+      windDirection: (json['WindDirection'] ?? 0).toDouble(),
+      lightIntensity: (json['LightIntensity'] ?? 0).toDouble(),
+>>>>>>> cea63b01700f0434f0f94d4c8e3570e2cba6a25f
     );
   }
 }
@@ -303,30 +316,68 @@ int _detectIntervalMinutes(List<WeatherData> data) {
   diffs.sort();
   return diffs[diffs.length ~/ 2]; // median
 }
+<<<<<<< HEAD
 
 const int _kCorrectionWindowHours = 6;
+=======
+const int _kCorrectionWindowHours = 12; // Expanded window to 24h to capture daily min effectively
+>>>>>>> cea63b01700f0434f0f94d4c8e3570e2cba6a25f
 
 List<double> applyThermalCorrection(List<WeatherData> data) {
   final result = <double>[];
   if (data.isEmpty) return result;
 
   final intervalMinutes = _detectIntervalMinutes(data);
+<<<<<<< HEAD
   final windowSize =
       (_kCorrectionWindowHours * 60 / intervalMinutes).round().clamp(6, 500);
+=======
+  final windowSize = (_kCorrectionWindowHours * 60 / intervalMinutes)
+      .round()
+      .clamp(6, 1000);
+
+  // 1-hour short window for heating rate
+  final shortWindow = (60 / intervalMinutes).round().clamp(1, 100);
+>>>>>>> cea63b01700f0434f0f94d4c8e3570e2cba6a25f
 
   for (int i = 0; i < data.length; i++) {
+    // 12-hour rolling min — ab raat ka temp bhi capture hoga
     final start = (i - windowSize + 1).clamp(0, i);
     double rollingMin = data[i].currentTemperature;
     for (int j = start; j <= i; j++) {
-      if (data[j].currentTemperature < rollingMin) {
+      if (data[j].currentTemperature < rollingMin)
         rollingMin = data[j].currentTemperature;
-      }
     }
 
+<<<<<<< HEAD
     final heatAcc = data[i].currentTemperature - rollingMin;
     final humidity = data[i].currentHumidity;
 
     final correction = 0.221 * heatAcc + (-0.023) * humidity + 1.046;
+=======
+    final heatAcc = (data[i].currentTemperature - rollingMin)
+        .clamp(0.0, 25.0);
+
+    // Sirf positive rate of change (heating phase boost)
+    final lookback = (i - shortWindow).clamp(0, i);
+    final dTRecent = (data[i].currentTemperature - data[lookback].currentTemperature)
+        .clamp(0.0, 15.0);
+
+    final humidity = data[i].currentHumidity;
+    final light = data[i].lightIntensity.clamp(0.0, 120000.0);
+    final wind = data[i].windSpeed.clamp(0.0, 25.0);
+
+    // Blend thermal accumulation and direct light intensity
+    final baseCorrection = (0.14 * heatAcc + 0.000035 * light) 
+                         + 0.15 * dTRecent 
+                         + (-0.02) * humidity 
+                         + 0.6;
+
+    // Wind cooling: reduces the enclosure heat trap effect
+    final windCoolingFactor = (1.0 / (1.0 + 0.04 * wind)).clamp(0.65, 1.0);
+
+    final correction = baseCorrection * windCoolingFactor;
+>>>>>>> cea63b01700f0434f0f94d4c8e3570e2cba6a25f
 
     final corrected = data[i].currentTemperature - correction;
     result.add(corrected < data[i].currentTemperature - 6.0
@@ -608,6 +659,7 @@ WeatherData? _bucketSW15(List<WeatherData> raw, DateTime bucket) {
     windSpeed: avg((d) => d.windSpeed),
     rainfallHourly: avg((d) => d.rainfallHourly),
     windDirection: avg((d) => d.windDirection),
+    lightIntensity: avg((d) => d.lightIntensity),
   );
 }
 
