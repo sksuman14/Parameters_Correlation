@@ -14,7 +14,7 @@ import 'package:intl/intl.dart';
 //  SENSOR TYPE
 // ════════════════════════════════════════════════════════════
 
-enum SensorType { cp, sw, wj, wm }
+enum SensorType { cp, sw, wj, wm, jw }
 
 String sensorTypeLabel(SensorType t) {
   switch (t) {
@@ -26,6 +26,8 @@ String sensorTypeLabel(SensorType t) {
       return 'WJ';
     case SensorType.wm:
       return 'WM';
+    case SensorType.jw:
+      return 'JW';
   }
 }
 
@@ -53,16 +55,51 @@ class WeatherData {
   });
 
   factory WeatherData.fromJson(Map<String, dynamic> json) {
-    final rawTs = (json['TimeStamp'] ?? '').toString().trim();
+    final rawTs = (json['TimeStamp'] ??
+            json['timestamp'] ??
+            json['Time_Stamp'] ??
+            json['created_at'] ??
+            json['datetime'] ??
+            json['time'] ??
+            json['Date'] ??
+            '')
+        .toString()
+        .trim();
     final normTs = rawTs.replaceFirst(RegExp(r' (?=\d{2}:\d{2})'), 'T');
+
+    DateTime parsedDate;
+    try {
+      parsedDate = DateTime.parse(normTs);
+    } catch (e) {
+      throw FormatException(
+          'Invalid date format: "$rawTs". Available keys: ${json.keys.join(', ')}');
+    }
+
+    double parseD(dynamic val) {
+      if (val == null) return 0.0;
+      if (val is num) return val.toDouble();
+      return double.tryParse(val.toString()) ?? 0.0;
+    }
+
+    double ws = 0.0;
+    if (json['WindSpeed'] != null) {
+      ws = parseD(json['WindSpeed']);
+    } else if (json['now_wind_speed'] != null) {
+      ws = parseD(json['now_wind_speed']) * 0.514444; // knots to m/s
+    }
+
     return WeatherData(
-      timeStamp: DateTime.parse(normTs),
-      atmPressure: (json['AtmPressure'] ?? 0).toDouble(),
-      currentTemperature: (json['CurrentTemperature'] ?? 0).toDouble(),
-      currentHumidity: (json['CurrentHumidity'] ?? 0).toDouble(),
-      windSpeed: (json['WindSpeed'] ?? 0).toDouble(),
-      rainfallHourly: (json['RainfallHourly'] ?? 0).toDouble(),
-      windDirection: (json['WindDirection'] ?? 0).toDouble(),
+      timeStamp: parsedDate,
+      atmPressure: parseD(
+          json['AtmPressure'] ?? json['pressure'] ?? json['now_pressure']),
+      currentTemperature:
+          parseD(json['CurrentTemperature'] ?? json['now_temperature']),
+      currentHumidity:
+          parseD(json['CurrentHumidity'] ?? json['now_relative_humidity']),
+      windSpeed: ws,
+      rainfallHourly: parseD(json['RainfallHourly'] ?? json['rainfall']),
+      windDirection:
+          parseD(json['WindDirection'] ?? json['now_wind_direction']),
     );
   }
 }
@@ -255,30 +292,27 @@ String getWindArrow(double degrees) {
 
 int _detectIntervalMinutes(List<WeatherData> data) {
   if (data.length < 2) return 5; // default
-  
- 
+
   final diffs = <int>[];
   for (int i = 1; i < data.length && i <= 10; i++) {
-    final diff = data[i].timeStamp
-        .difference(data[i - 1].timeStamp)
-        .inMinutes
-        .abs();
+    final diff =
+        data[i].timeStamp.difference(data[i - 1].timeStamp).inMinutes.abs();
     if (diff > 0) diffs.add(diff);
   }
   if (diffs.isEmpty) return 5;
   diffs.sort();
   return diffs[diffs.length ~/ 2]; // median
 }
-const int _kCorrectionWindowHours = 6; 
+
+const int _kCorrectionWindowHours = 6;
 
 List<double> applyThermalCorrection(List<WeatherData> data) {
   final result = <double>[];
   if (data.isEmpty) return result;
 
   final intervalMinutes = _detectIntervalMinutes(data);
-  final windowSize = (_kCorrectionWindowHours * 60 / intervalMinutes)
-      .round()
-      .clamp(6, 500); 
+  final windowSize =
+      (_kCorrectionWindowHours * 60 / intervalMinutes).round().clamp(6, 500);
 
   for (int i = 0; i < data.length; i++) {
     final start = (i - windowSize + 1).clamp(0, i);
@@ -289,12 +323,10 @@ List<double> applyThermalCorrection(List<WeatherData> data) {
       }
     }
 
-    final heatAcc  = data[i].currentTemperature - rollingMin;
+    final heatAcc = data[i].currentTemperature - rollingMin;
     final humidity = data[i].currentHumidity;
 
-    final correction = 0.221 * heatAcc
-                     + (-0.023) * humidity
-                     + 1.046;
+    final correction = 0.221 * heatAcc + (-0.023) * humidity + 1.046;
 
     final corrected = data[i].currentTemperature - correction;
     result.add(corrected < data[i].currentTemperature - 6.0
@@ -303,9 +335,9 @@ List<double> applyThermalCorrection(List<WeatherData> data) {
   }
   return result;
 }
+
 /// True if this device is CP 39 (the one with enclosure heat-trap issue).
-bool isCp39(DeviceData d) =>
-    d.sensorType == SensorType.cp && d.deviceId == 39;
+bool isCp39(DeviceData d) => d.sensorType == SensorType.cp && d.deviceId == 39;
 
 /// Accent color for the corrected series line.
 const Color _kCorrectedColor = Color(0xFF3FB950); // same as _kGreen
@@ -354,7 +386,8 @@ class DeviceData {
     required this.color,
   }) {
     sortedData = [...data]..sort((a, b) => a.timeStamp.compareTo(b.timeStamp));
-    correctedTemperatures = isCp39(this) ? applyThermalCorrection(sortedData) : null;
+    correctedTemperatures =
+        isCp39(this) ? applyThermalCorrection(sortedData) : null;
   }
 
   String get key => '${sensorTypeLabel(sensorType)}_$deviceId';
@@ -457,6 +490,9 @@ String buildApiUrl({
     case SensorType.wm:
       return 'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/annam0526data'
           '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate';
+    case SensorType.jw:
+      return 'https://5x7thxo9uk.execute-api.us-east-1.amazonaws.com/default/WS_WINDS_JIO_Logger_API'
+          '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate';
   }
 }
 
@@ -478,6 +514,9 @@ String buildDownloadApiUrl({
           '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate&mode=download';
     case SensorType.wm:
       return 'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/annam0526data'
+          '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate&mode=download';
+    case SensorType.jw:
+      return 'https://5x7thxo9uk.execute-api.us-east-1.amazonaws.com/default/WS_WINDS_JIO_Logger_API'
           '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate&mode=download';
   }
 }
@@ -849,14 +888,10 @@ class _CorrectionToggle extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: value
-            ? _kCorrectedColor.withOpacity(0.07)
-            : _kBg,
+        color: value ? _kCorrectedColor.withOpacity(0.07) : _kBg,
         borderRadius: _kRadiusSm,
         border: Border.all(
-          color: value
-              ? _kCorrectedColor.withOpacity(0.4)
-              : _kBorderAccent,
+          color: value ? _kCorrectedColor.withOpacity(0.4) : _kBorderAccent,
           width: 1,
         ),
       ),
@@ -866,7 +901,8 @@ class _CorrectionToggle extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: (value ? _kCorrectedColor : _kTextTertiary).withOpacity(0.12),
+              color:
+                  (value ? _kCorrectedColor : _kTextTertiary).withOpacity(0.12),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Icon(
@@ -900,8 +936,7 @@ class _CorrectionToggle extends StatelessWidget {
                         color: _kCorrectedColor.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(3),
                         border: Border.all(
-                            color: _kCorrectedColor.withOpacity(0.3),
-                            width: 1),
+                            color: _kCorrectedColor.withOpacity(0.3), width: 1),
                       ),
                       child: const Text(
                         'CP 39',
@@ -915,8 +950,6 @@ class _CorrectionToggle extends StatelessWidget {
                     ),
                   ],
                 ),
-               
-             
               ],
             ),
           ),
@@ -1036,23 +1069,23 @@ class _SensorSelectorWidgetState extends State<_SensorSelectorWidget> {
                   color: _kTextPrimary,
                   fontFamily: 'monospace',
                 ),
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   hintText: 'Device ID',
-                  hintStyle: const TextStyle(
+                  hintStyle: TextStyle(
                       fontSize: 13,
                       color: _kTextTertiary,
                       fontFamily: 'monospace'),
                   contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   filled: true,
                   fillColor: _kBg,
                   enabledBorder: OutlineInputBorder(
                     borderRadius: _kRadiusSm,
-                    borderSide: const BorderSide(color: _kBorder, width: 1),
+                    borderSide: BorderSide(color: _kBorder, width: 1),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: _kRadiusSm,
-                    borderSide: const BorderSide(color: _kPrimary, width: 1),
+                    borderSide: BorderSide(color: _kPrimary, width: 1),
                   ),
                 ),
                 onSubmitted: (_) => _add(),
@@ -1064,7 +1097,7 @@ class _SensorSelectorWidgetState extends State<_SensorSelectorWidget> {
               child: Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: _kPrimary,
                   borderRadius: _kRadiusSm,
                 ),
@@ -1721,9 +1754,10 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
       }
 
       // Add corrected temperature column for CP 39 if correction is active
-      final cp39Csv = csvs.where((c) =>
-          c.sensor.deviceId == 39 &&
-          c.sensor.sensorType == SensorType.cp).firstOrNull;
+      final cp39Csv = csvs
+          .where((c) =>
+              c.sensor.deviceId == 39 && c.sensor.sensorType == SensorType.cp)
+          .firstOrNull;
       final hasCp39 = cp39Csv != null;
 
       final headers = [
@@ -1736,8 +1770,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
       // Precompute correction map for CP39
       Map<String, double> correctedMap = {};
       if (hasCp39) {
-        final cp39Device =
-            _devicesData.where(isCp39).firstOrNull;
+        final cp39Device = _devicesData.where(isCp39).firstOrNull;
         if (cp39Device != null) {
           for (int i = 0; i < cp39Device.sortedData.length; i++) {
             final ts = DateFormat('yyyy-MM-dd HH:mm:ss')
@@ -1753,8 +1786,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
           ts,
           ...orderedCols
               .expand((col) => csvs.map((c) => c.csv.rows[ts]?[col] ?? '')),
-          if (hasCp39)
-            correctedMap[ts]?.toStringAsFixed(2) ?? '',
+          if (hasCp39) correctedMap[ts]?.toStringAsFixed(2) ?? '',
         ];
         lines.add(cells.join(','));
       }
@@ -2102,8 +2134,8 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
 
   Widget _buildSensorTab() {
     // Check if CP 39 is in sensor list (before data is loaded, for toggle preview)
-    final cp39InList = _sensors
-        .any((s) => s.deviceId == 39 && s.sensorType == SensorType.cp);
+    final cp39InList =
+        _sensors.any((s) => s.deviceId == 39 && s.sensorType == SensorType.cp);
     final showCorrectionToggle =
         cp39InList && _selectedParams.contains(WeatherParameter.temperature);
 
@@ -2176,9 +2208,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                     );
                   }).toList(),
                 ),
-
-               
-
                 const SizedBox(height: 18),
                 Center(
                   child: _ActionButton(
@@ -2244,8 +2273,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                   final corrected = <FlSpot>[];
                   for (int i = 0; i < device.sortedData.length; i++) {
                     corrected.add(FlSpot(
-                      device.sortedData[i]
-                              .timeStamp
+                      device.sortedData[i].timeStamp
                               .difference(globalMin)
                               .inSeconds /
                           60.0,
@@ -2279,8 +2307,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                     // Determine whether this spot is a corrected series
                     // Corrected bars are added right after their raw counterpart
                     // We track by checking color
-                    final isCorrectedBar =
-                        spot.bar.color == _kCorrectedColor;
+                    final isCorrectedBar = spot.bar.color == _kCorrectedColor;
                     final color = spot.bar.color ?? _kPrimary;
 
                     // Find original device for label
@@ -2308,8 +2335,8 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                           : 'Sensor';
                     }
 
-                    final t = globalMin
-                        .add(Duration(seconds: (spot.x * 60).round()));
+                    final t =
+                        globalMin.add(Duration(seconds: (spot.x * 60).round()));
                     final label = isCorrectedBar
                         ? '$deviceLabel: ${spot.y.toStringAsFixed(1)}°C'
                         : '$deviceLabel: ${spot.y.toStringAsFixed(1)} ${parameterUnit(p)}';
@@ -2401,8 +2428,9 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
               final d = _devicesData[i];
               final s = _stats(vals[d.key] ?? []);
               if (s.isEmpty) continue;
-              final latestWind =
-                  isWind && d.data.isNotEmpty ? d.data.last.windDirection : null;
+              final latestWind = isWind && d.data.isNotEmpty
+                  ? d.data.last.windDirection
+                  : null;
 
               // Corrected stats for CP 39
               Map<String, double>? corrStats;
@@ -2475,7 +2503,9 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                     if (isWind && latestWind != null) ...[
                       const SizedBox(height: 8),
                       _WindDirectionCard(
-                          label: 'CURRENT', degrees: latestWind, color: d.color),
+                          label: 'CURRENT',
+                          degrees: latestWind,
+                          color: d.color),
                     ],
 
                     // ── Corrected stats block ────────────────────────────
@@ -2616,22 +2646,19 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                         Expanded(
                             child: _MetricCard(
                                 label: 'MAX Δ',
-                                value:
-                                    '${ds['max']!.toStringAsFixed(2)} $unit',
+                                value: '${ds['max']!.toStringAsFixed(2)} $unit',
                                 color: _kRed)),
                         const SizedBox(width: 8),
                         Expanded(
                             child: _MetricCard(
                                 label: 'AVG Δ',
-                                value:
-                                    '${ds['avg']!.toStringAsFixed(2)} $unit',
+                                value: '${ds['avg']!.toStringAsFixed(2)} $unit',
                                 color: _kAmber)),
                         const SizedBox(width: 8),
                         Expanded(
                             child: _MetricCard(
                                 label: 'MIN Δ',
-                                value:
-                                    '${ds['min']!.toStringAsFixed(2)} $unit',
+                                value: '${ds['min']!.toStringAsFixed(2)} $unit',
                                 color: _kGreen)),
                       ]),
                     ],
@@ -2895,8 +2922,8 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                         : (spot.barIndex - 1 < _imdSensors.length
                             ? _imdSensors[spot.barIndex - 1].label
                             : 'Sensor');
-                    final t = globalMin
-                        .add(Duration(seconds: (spot.x * 60).round()));
+                    final t =
+                        globalMin.add(Duration(seconds: (spot.x * 60).round()));
                     String diffText = '';
                     if (spots.length == 2 && e.key == spots.length - 1) {
                       diffText =
@@ -3325,8 +3352,7 @@ class _WindDirectionCard extends StatelessWidget {
               const SizedBox(height: 6),
               Transform.rotate(
                 angle: angle,
-                child:
-                    Icon(Icons.navigation, size: 30, color: _kTextPrimary),
+                child: Icon(Icons.navigation, size: 30, color: _kTextPrimary),
               ),
             ],
           ),
@@ -3417,8 +3443,7 @@ class _ErrorBanner extends StatelessWidget {
                 color: _kRed.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child:
-                  const Icon(Icons.error_outline, size: 14, color: _kRed),
+              child: const Icon(Icons.error_outline, size: 14, color: _kRed),
             ),
             const SizedBox(width: 10),
             Expanded(
