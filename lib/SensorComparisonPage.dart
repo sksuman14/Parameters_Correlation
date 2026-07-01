@@ -2361,6 +2361,12 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                           : 'Sensor';
                     }
 
+                    String diffText = '';
+                    if (spots.length == 2 && e.key == spots.length - 1) {
+                      diffText =
+                          '\nΔ ${(spots[0].y - spots[1].y).abs().toStringAsFixed(1)} ${parameterUnit(p)}';
+                    }
+
                     final t =
                         globalMin.add(Duration(seconds: (spot.x * 60).round()));
                     final label = isCorrectedBar
@@ -2375,6 +2381,19 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                         fontWeight: FontWeight.w600,
                         fontFamily: 'monospace',
                       ),
+                      children: diffText.isEmpty
+                          ? null
+                          : [
+                              TextSpan(
+                                text: diffText,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            ],
                     );
                   }).toList(),
                 ),
@@ -2956,13 +2975,26 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                           '\nΔ ${(spots[0].y - spots[1].y).abs().toStringAsFixed(1)} $unit';
                     }
                     return LineTooltipItem(
-                      '${DateFormat('dd/MM HH:mm').format(t)}\n$label: ${spot.y.toStringAsFixed(1)} $unit$diffText',
+                      '${DateFormat('dd/MM HH:mm').format(t)}\n$label: ${spot.y.toStringAsFixed(1)} $unit',
                       TextStyle(
                         color: color,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         fontFamily: 'monospace',
                       ),
+                      children: diffText.isEmpty
+                          ? null
+                          : [
+                              TextSpan(
+                                text: diffText,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            ],
                     );
                   }).toList(),
                 ),
