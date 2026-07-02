@@ -1047,7 +1047,8 @@ class _SensorSelectorWidgetState extends State<_SensorSelectorWidget> {
                 .toList(),
           ),
         const SizedBox(height: 12),
-        Row(
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               decoration: BoxDecoration(
@@ -1085,65 +1086,69 @@ class _SensorSelectorWidgetState extends State<_SensorSelectorWidget> {
                 }).toList(),
               ),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                keyboardType: TextInputType.number,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: _kTextPrimary,
-                  fontFamily: 'monospace',
-                ),
-                decoration: const InputDecoration(
-                  hintText: 'Device ID',
-                  hintStyle: TextStyle(
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(
                       fontSize: 13,
-                      color: _kTextTertiary,
-                      fontFamily: 'monospace'),
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  filled: true,
-                  fillColor: _kBg,
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: _kRadiusSm,
-                    borderSide: BorderSide(color: _kBorder, width: 1),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: _kRadiusSm,
-                    borderSide: BorderSide(color: _kPrimary, width: 1),
-                  ),
-                ),
-                onSubmitted: (_) => _add(),
-              ),
-            ),
-            const SizedBox(width: 10),
-            GestureDetector(
-              onTap: _add,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: const BoxDecoration(
-                  color: _kPrimary,
-                  borderRadius: _kRadiusSm,
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.add, size: 16, color: Color(0xFF0D1117)),
-                    SizedBox(width: 5),
-                    Text(
-                      'Add',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF0D1117),
-                        fontFamily: 'monospace',
+                      color: _kTextPrimary,
+                      fontFamily: 'monospace',
+                    ),
+                    decoration: const InputDecoration(
+                      hintText: 'Device ID',
+                      hintStyle: TextStyle(
+                          fontSize: 13,
+                          color: _kTextTertiary,
+                          fontFamily: 'monospace'),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      filled: true,
+                      fillColor: _kBg,
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: _kRadiusSm,
+                        borderSide: BorderSide(color: _kBorder, width: 1),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: _kRadiusSm,
+                        borderSide: BorderSide(color: _kPrimary, width: 1),
                       ),
                     ),
-                  ],
+                    onSubmitted: (_) => _add(),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 10),
+                GestureDetector(
+                  onTap: _add,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    decoration: const BoxDecoration(
+                      color: _kPrimary,
+                      borderRadius: _kRadiusSm,
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.add, size: 16, color: Color(0xFF0D1117)),
+                        SizedBox(width: 5),
+                        Text(
+                          'Add',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF0D1117),
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
