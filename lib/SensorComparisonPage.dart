@@ -1047,10 +1047,11 @@ class _SensorSelectorWidgetState extends State<_SensorSelectorWidget> {
                 .toList(),
           ),
         const SizedBox(height: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isSmallScreen = constraints.maxWidth < 500;
+
+            final toggles = Container(
               decoration: BoxDecoration(
                 border: Border.all(color: _kBorder),
                 borderRadius: _kRadiusSm,
@@ -1085,72 +1086,93 @@ class _SensorSelectorWidgetState extends State<_SensorSelectorWidget> {
                   );
                 }).toList(),
               ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: _kTextPrimary,
-                      fontFamily: 'monospace',
-                    ),
-                    decoration: const InputDecoration(
-                      hintText: 'Device ID',
-                      hintStyle: TextStyle(
-                          fontSize: 13,
-                          color: _kTextTertiary,
-                          fontFamily: 'monospace'),
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      filled: true,
-                      fillColor: _kBg,
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: _kRadiusSm,
-                        borderSide: BorderSide(color: _kBorder, width: 1),
+            );
+
+            final inputAndAdd = Expanded(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: _kTextPrimary,
+                        fontFamily: 'monospace',
                       ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: _kRadiusSm,
-                        borderSide: BorderSide(color: _kPrimary, width: 1),
-                      ),
-                    ),
-                    onSubmitted: (_) => _add(),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                GestureDetector(
-                  onTap: _add,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 10),
-                    decoration: const BoxDecoration(
-                      color: _kPrimary,
-                      borderRadius: _kRadiusSm,
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.add, size: 16, color: Color(0xFF0D1117)),
-                        SizedBox(width: 5),
-                        Text(
-                          'Add',
-                          style: TextStyle(
+                      decoration: const InputDecoration(
+                        hintText: 'Device ID',
+                        hintStyle: TextStyle(
                             fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF0D1117),
-                            fontFamily: 'monospace',
-                          ),
+                            color: _kTextTertiary,
+                            fontFamily: 'monospace'),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        filled: true,
+                        fillColor: _kBg,
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: _kRadiusSm,
+                          borderSide: BorderSide(color: _kBorder, width: 1),
                         ),
-                      ],
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: _kRadiusSm,
+                          borderSide: BorderSide(color: _kPrimary, width: 1),
+                        ),
+                      ),
+                      onSubmitted: (_) => _add(),
                     ),
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  GestureDetector(
+                    onTap: _add,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                      decoration: const BoxDecoration(
+                        color: _kPrimary,
+                        borderRadius: _kRadiusSm,
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.add, size: 16, color: Color(0xFF0D1117)),
+                          SizedBox(width: 5),
+                          Text(
+                            'Add',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0D1117),
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+
+            if (isSmallScreen) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  toggles,
+                  const SizedBox(height: 12),
+                  Row(children: [inputAndAdd]),
+                ],
+              );
+            }
+
+            return Row(
+              children: [
+                toggles,
+                const SizedBox(width: 10),
+                inputAndAdd,
               ],
-            ),
-          ],
+            );
+          },
         ),
       ],
     );
@@ -2098,14 +2120,6 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                             )
                           else ...[
                             _AppBarButton(
-                              icon: Icons.download_outlined,
-                              tooltip: 'Export CSV',
-                              onTap: _isImdTab
-                                  ? _downloadImdCsv
-                                  : _downloadSensorCsv,
-                            ),
-                            const SizedBox(width: 8),
-                            _AppBarButton(
                               icon: Icons.refresh_outlined,
                               tooltip: 'Refresh',
                               onTap:
@@ -2149,6 +2163,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
           ),
         ),
         body: TabBarView(
+          physics: const NeverScrollableScrollPhysics(),
           controller: _tabController,
           children: [
             _buildSensorTab(),
