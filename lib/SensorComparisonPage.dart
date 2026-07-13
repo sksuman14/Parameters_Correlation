@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'secrets.dart';
 
 // ════════════════════════════════════════════════════════════
 //  SENSOR TYPE
@@ -500,21 +501,21 @@ String buildApiUrl({
   switch (sensorType) {
     case SensorType.sw:
       return 'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet1225data'
-          '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate';
+          '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate&key=$kSwApiKey';
     case SensorType.wj:
       return 'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet0126data'
-          '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate';
+          '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate&key=$kWjApiKey';
     case SensorType.cp:
       if (deviceId == 1 || deviceId == 3) {
         return 'https://d3g5fo66jwc4iw.cloudfront.net/campusdata'
-            '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate';
+            '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate&key=$kCpApiKey';
       } else {
         return 'https://d3dj66m23j48gu.cloudfront.net/campusdata'
             '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate';
       }
     case SensorType.wm:
       return 'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/annam0526data'
-          '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate';
+          '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate&key=$kWmApiKey';
     case SensorType.jw:
       return 'https://5x7thxo9uk.execute-api.us-east-1.amazonaws.com/default/WS_WINDS_JIO_Logger_API'
           '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate';
@@ -530,16 +531,20 @@ String buildDownloadApiUrl({
   switch (sensorType) {
     case SensorType.sw:
       return 'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet1225data'
-          '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate&mode=download';
+          '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate&mode=download&key=$kSwApiKey';
     case SensorType.wj:
       return 'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/wjmetdata'
-          '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate&mode=download';
+          '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate&mode=download&key=$kWjApiKey';
     case SensorType.cp:
+      if (deviceId == 1 || deviceId == 3) {
+        return 'https://i1g1n1ufu0.execute-api.us-east-1.amazonaws.com/campusdata'
+            '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate&mode=download&key=$kCpApiKey';
+      }
       return 'https://i1g1n1ufu0.execute-api.us-east-1.amazonaws.com/campusdata'
           '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate&mode=download';
     case SensorType.wm:
       return 'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/annam0526data'
-          '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate&mode=download';
+          '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate&mode=download&key=$kWmApiKey';
     case SensorType.jw:
       return 'https://5x7thxo9uk.execute-api.us-east-1.amazonaws.com/default/WS_WINDS_JIO_Logger_API'
           '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate&mode=download';

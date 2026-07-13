@@ -25370,13 +25370,13 @@ if(J.cy(o)>=q){o=s.h(0,f)
 o.toString
 h.push(new A.LH(o))}}return h},
 aE8(a,b,c,d){var s,r
-switch(c.a){case 1:return"https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet1225data?deviceid="+a+"&startdate="+d+"&enddate="+b
-case 2:return"https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet0126data?deviceid="+a+"&startdate="+d+"&enddate="+b
+switch(c.a){case 1:return"https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet1225data?deviceid="+a+"&startdate="+d+"&enddate="+b+"&key=Annam@2025"
+case 2:return"https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet0126data?deviceid="+a+"&startdate="+d+"&enddate="+b+"&key=Annam@2025"
 case 0:s=a===1||a===3
 r=""+a
-if(s)return"https://d3g5fo66jwc4iw.cloudfront.net/campusdata?deviceid="+r+"&startdate="+d+"&enddate="+b
+if(s)return"https://d3g5fo66jwc4iw.cloudfront.net/campusdata?deviceid="+r+"&startdate="+d+"&enddate="+b+"&key=Annam@2025"
 else return"https://d3dj66m23j48gu.cloudfront.net/campusdata?deviceid="+r+"&startdate="+d+"&enddate="+b
-case 3:return"https://gtk47vexob.execute-api.us-east-1.amazonaws.com/annam0526data?deviceid="+a+"&startdate="+d+"&enddate="+b
+case 3:return"https://gtk47vexob.execute-api.us-east-1.amazonaws.com/annam0526data?deviceid="+a+"&startdate="+d+"&enddate="+b+"&key=Annam@2025"
 case 4:return"https://5x7thxo9uk.execute-api.us-east-1.amazonaws.com/default/WS_WINDS_JIO_Logger_API?deviceid="+a+"&startdate="+d+"&enddate="+b}},
 aPY(a,b){var s=A.R(a).i("aS<1>"),r=A.Z(new A.aS(a,new A.asu(b),s),s.i("n.E"))
 if(r.length===0)return null
