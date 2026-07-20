@@ -905,6 +905,69 @@ Widget _sectionDivider(String label) => Padding(
     );
 
 // ════════════════════════════════════════════════════════════
+//  OVERLAY TOGGLE WIDGET
+// ════════════════════════════════════════════════════════════
+
+class _OverlayToggle extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _OverlayToggle({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: value ? _kPrimary.withOpacity(0.07) : _kBg,
+        borderRadius: _kRadiusSm,
+        border: Border.all(
+          color: value ? _kPrimary.withOpacity(0.4) : _kBorderAccent,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: (value ? _kPrimary : _kTextTertiary).withOpacity(0.12),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(
+              Icons.layers_outlined,
+              size: 14,
+              color: value ? _kPrimary : _kTextTertiary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Compare Days (Overlay)',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: value ? _kPrimary : _kTextPrimary,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: _kPrimary,
+            activeTrackColor: _kPrimary.withOpacity(0.25),
+            inactiveThumbColor: _kTextTertiary,
+            inactiveTrackColor: _kBorder,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════
 //  CORRECTION TOGGLE WIDGET  ← NEW
 // ════════════════════════════════════════════════════════════
 
@@ -1310,6 +1373,7 @@ class _ChartWidget extends StatefulWidget {
   final DateTime globalMin;
   final double totalMinutes;
   final List<LineTooltipItem?> Function(List<LineBarSpot>) getTooltipItems;
+  final bool isOverlayMode;
 
   const _ChartWidget({
     required this.title,
@@ -1318,6 +1382,7 @@ class _ChartWidget extends StatefulWidget {
     required this.globalMin,
     required this.totalMinutes,
     required this.getTooltipItems,
+    this.isOverlayMode = false,
   });
 
   @override
@@ -1340,7 +1405,7 @@ class _ChartWidgetState extends State<_ChartWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final total = widget.totalMinutes < 1.0 ? 1.0 : widget.totalMinutes;
+    final total = widget.isOverlayMode ? 1440.0 : (widget.totalMinutes < 1.0 ? 1.0 : widget.totalMinutes);
     final visible = total / _zoom;
     final maxPan = max(0.0, total - visible);
     final clampedPan = _pan.clamp(0.0, maxPan);
@@ -1524,19 +1589,34 @@ class _ChartWidgetState extends State<_ChartWidget> {
                           reservedSize: 26,
                           interval: max(1.0, (visible / 8).ceilToDouble()),
                           getTitlesWidget: (v, _) {
-                            final t = widget.globalMin
-                                .add(Duration(seconds: (v * 60).round()));
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                DateFormat('HH:mm').format(t),
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: _kTextPrimary,
-                                  fontFamily: 'monospace',
+                            if (widget.isOverlayMode) {
+                              final t = DateTime(2000, 1, 1, 0, v.round());
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  DateFormat('HH:mm').format(t),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: _kTextPrimary,
+                                    fontFamily: 'monospace',
+                                  ),
                                 ),
-                              ),
-                            );
+                              );
+                            } else {
+                              final t = widget.globalMin
+                                  .add(Duration(seconds: (v * 60).round()));
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  DateFormat('HH:mm').format(t),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: _kTextPrimary,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              );
+                            }
                           },
                         ),
                       ),
@@ -1637,6 +1717,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
 
   /// NEW: thermal correction toggle state
   bool _showCorrected = false;
+  bool _overlayDays = false;
 
   // ── IMD state ─────────────────────────────────────────────────────────────
   List<SensorEntry> _imdSensors = [
@@ -2290,6 +2371,12 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
               const SizedBox(height: 12),
             ],
 
+            _OverlayToggle(
+              value: _overlayDays,
+              onChanged: (v) => setState(() => _overlayDays = v),
+            ),
+            const SizedBox(height: 12),
+
             ..._selectedParams.map((p) {
               final globalMin = _globalMinTime!;
 
@@ -2298,50 +2385,131 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
               final legend = <_ChartLegendItem>[];
 
               for (final device in _devicesData) {
-                // Raw spots (from matched timestamps for alignment)
-                final spots = <FlSpot>[];
-                for (final mp in _matched) {
-                  final d = mp.deviceData[device.key];
-                  if (d != null) {
-                    spots.add(FlSpot(
-                        d.timeStamp.difference(globalMin).inSeconds / 60.0,
-                        getParameterValue(d, p)));
+                if (_overlayDays) {
+                  final Map<String, List<WeatherData>> groupedByDate = {};
+                  for (final d in device.sortedData) {
+                    final dateStr = DateFormat('yyyy-MM-dd').format(d.timeStamp);
+                    groupedByDate.putIfAbsent(dateStr, () => []).add(d);
                   }
-                }
-                lineBars.add(LineChartBarData(
-                    spots: spots,
-                    isCurved: true,
-                    color: device.color,
-                    barWidth: 2,
-                    dotData: const FlDotData(show: false)));
-                legend.add(_ChartLegendItem(
-                    label: '${device.label} (raw)', color: device.color));
-
-                // ── Corrected line for CP 39 + Temperature ───────────────
-                if (_showCorrected &&
-                    isCp39(device) &&
-                    p == WeatherParameter.temperature) {
-                  final corrected = <FlSpot>[];
-                  for (int i = 0; i < device.sortedData.length; i++) {
-                    corrected.add(FlSpot(
-                      device.sortedData[i].timeStamp
-                              .difference(globalMin)
-                              .inSeconds /
-                          60.0,
-                      device.correctedTemperatures![i],
-                    ));
+                  
+                  int dateIndex = 0;
+                  for (final dateEntry in groupedByDate.entries) {
+                    final dateStr = dateEntry.key;
+                    final dailyData = dateEntry.value;
+                    
+                    final spots = <FlSpot>[];
+                    for (final d in dailyData) {
+                      final minuteOfDay = d.timeStamp.hour * 60.0 + d.timeStamp.minute + (d.timeStamp.second / 60.0);
+                      spots.add(FlSpot(minuteOfDay, getParameterValue(d, p)));
+                    }
+                    
+                    final color = _devicesData.length == 1 
+                        ? ColorPalette.getColor(dateIndex) 
+                        : device.color.withOpacity(1.0 - (dateIndex * 0.15).clamp(0.0, 0.8));
+                        
+                    lineBars.add(LineChartBarData(
+                        spots: spots,
+                        isCurved: true,
+                        color: color,
+                        barWidth: 2,
+                        dotData: const FlDotData(show: false)));
+                        
+                    final legendLabel = _devicesData.length == 1
+                        ? DateFormat('dd MMM').format(DateTime.parse(dateStr))
+                        : '${device.label} - ${DateFormat('dd MMM').format(DateTime.parse(dateStr))}';
+                        
+                    legend.add(_ChartLegendItem(
+                        label: legendLabel, color: color));
+                        
+                    dateIndex++;
+                  }
+                  
+                  if (_showCorrected && isCp39(device) && p == WeatherParameter.temperature) {
+                    final Map<String, List<double>> groupedCorrByDate = {};
+                    for (int i = 0; i < device.sortedData.length; i++) {
+                      final d = device.sortedData[i];
+                      final dateStr = DateFormat('yyyy-MM-dd').format(d.timeStamp);
+                      groupedCorrByDate.putIfAbsent(dateStr, () => []).add(device.correctedTemperatures![i]);
+                    }
+                    
+                    int cDateIndex = 0;
+                    for (final dateEntry in groupedByDate.entries) {
+                       final dateStr = dateEntry.key;
+                       final dailyData = dateEntry.value;
+                       final dailyCorr = groupedCorrByDate[dateStr]!;
+                       
+                       final correctedSpots = <FlSpot>[];
+                       for (int i = 0; i < dailyData.length; i++) {
+                          final d = dailyData[i];
+                          final minuteOfDay = d.timeStamp.hour * 60.0 + d.timeStamp.minute + (d.timeStamp.second / 60.0);
+                          correctedSpots.add(FlSpot(minuteOfDay, dailyCorr[i]));
+                       }
+                       final cColor = _kCorrectedColor.withOpacity(1.0 - (cDateIndex * 0.15).clamp(0.0, 0.8));
+                       
+                       lineBars.add(LineChartBarData(
+                          spots: correctedSpots,
+                          isCurved: true,
+                          color: cColor,
+                          barWidth: 2,
+                          dashArray: [6, 3],
+                          dotData: const FlDotData(show: false)));
+                          
+                       final legendLabel = _devicesData.length == 1
+                          ? 'CP 39 Corr - ${DateFormat('dd MMM').format(DateTime.parse(dateStr))}'
+                          : 'CP 39 Corr - ${DateFormat('dd MMM').format(DateTime.parse(dateStr))}';
+                          
+                       legend.add(_ChartLegendItem(
+                          label: legendLabel, color: cColor, dashed: true));
+                          
+                       cDateIndex++;
+                    }
+                  }
+                } else {
+                  // Raw spots (from matched timestamps for alignment)
+                  final spots = <FlSpot>[];
+                  for (final mp in _matched) {
+                    final d = mp.deviceData[device.key];
+                    if (d != null) {
+                      spots.add(FlSpot(
+                          d.timeStamp.difference(globalMin).inSeconds / 60.0,
+                          getParameterValue(d, p)));
+                    }
                   }
                   lineBars.add(LineChartBarData(
-                      spots: corrected,
+                      spots: spots,
                       isCurved: true,
-                      color: _kCorrectedColor,
+                      color: device.color,
                       barWidth: 2,
-                      dashArray: [6, 3],
                       dotData: const FlDotData(show: false)));
-                  legend.add(const _ChartLegendItem(
-                      label: 'CP 39 — corrected',
-                      color: _kCorrectedColor,
-                      dashed: true));
+                  legend.add(_ChartLegendItem(
+                      label: '${device.label} (raw)', color: device.color));
+  
+                  // ── Corrected line for CP 39 + Temperature ───────────────
+                  if (_showCorrected &&
+                      isCp39(device) &&
+                      p == WeatherParameter.temperature) {
+                    final corrected = <FlSpot>[];
+                    for (int i = 0; i < device.sortedData.length; i++) {
+                      corrected.add(FlSpot(
+                        device.sortedData[i].timeStamp
+                                .difference(globalMin)
+                                .inSeconds /
+                            60.0,
+                        device.correctedTemperatures![i],
+                      ));
+                    }
+                    lineBars.add(LineChartBarData(
+                        spots: corrected,
+                        isCurved: true,
+                        color: _kCorrectedColor,
+                        barWidth: 2,
+                        dashArray: [6, 3],
+                        dotData: const FlDotData(show: false)));
+                    legend.add(const _ChartLegendItem(
+                        label: 'CP 39 — corrected',
+                        color: _kCorrectedColor,
+                        dashed: true));
+                  }
                 }
               }
 
@@ -2353,38 +2521,11 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                   legend: legend,
                   globalMin: globalMin,
                   totalMinutes: _totalMinutes,
+                  isOverlayMode: _overlayDays,
                   getTooltipItems: (spots) => spots.asMap().entries.map((e) {
                     final spot = e.value;
-                    // Determine whether this spot is a corrected series
-                    // Corrected bars are added right after their raw counterpart
-                    // We track by checking color
-                    final isCorrectedBar = spot.bar.color == _kCorrectedColor;
                     final color = spot.bar.color ?? _kPrimary;
-
-                    // Find original device for label
-                    String deviceLabel;
-                    if (isCorrectedBar) {
-                      deviceLabel = 'CP 39 corrected';
-                    } else {
-                      // Map barIndex back to device (corrected bars are interleaved)
-                      int rawIdx = 0;
-                      int bi = 0;
-                      for (final device in _devicesData) {
-                        if (bi == spot.barIndex) {
-                          rawIdx = _devicesData.indexOf(device);
-                          break;
-                        }
-                        bi++;
-                        if (_showCorrected &&
-                            isCp39(device) &&
-                            p == WeatherParameter.temperature) {
-                          bi++;
-                        }
-                      }
-                      deviceLabel = rawIdx < _devicesData.length
-                          ? _devicesData[rawIdx].label
-                          : 'Sensor';
-                    }
+                    final deviceLabel = legend[spot.barIndex].label;
 
                     String diffText = '';
                     if (spots.length == 2 && e.key == spots.length - 1) {
@@ -2392,34 +2533,56 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                           '\nΔ ${(spots[0].y - spots[1].y).abs().toStringAsFixed(1)} ${parameterUnit(p)}';
                     }
 
-                    final t =
-                        globalMin.add(Duration(seconds: (spot.x * 60).round()));
-                    final label = isCorrectedBar
-                        ? '$deviceLabel: ${spot.y.toStringAsFixed(1)}°C'
-                        : '$deviceLabel: ${spot.y.toStringAsFixed(1)} ${parameterUnit(p)}';
-
-                    return LineTooltipItem(
-                      '${DateFormat('dd/MM HH:mm').format(t)}\n$label',
-                      TextStyle(
-                        color: color,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'monospace',
-                      ),
-                      children: diffText.isEmpty
-                          ? null
-                          : [
-                              TextSpan(
-                                text: diffText,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  fontFamily: 'monospace',
+                    if (_overlayDays) {
+                      final t = DateTime(2000, 1, 1, 0, spot.x.round());
+                      return LineTooltipItem(
+                        '${DateFormat('HH:mm').format(t)}\n$deviceLabel: ${spot.y.toStringAsFixed(1)} ${parameterUnit(p)}',
+                        TextStyle(
+                          color: color,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'monospace',
+                        ),
+                        children: diffText.isEmpty
+                            ? null
+                            : [
+                                TextSpan(
+                                  text: diffText,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    fontFamily: 'monospace',
+                                  ),
                                 ),
-                              ),
-                            ],
-                    );
+                              ],
+                      );
+                    } else {
+                      final t =
+                          globalMin.add(Duration(seconds: (spot.x * 60).round()));
+                      return LineTooltipItem(
+                        '${DateFormat('dd/MM HH:mm').format(t)}\n$deviceLabel: ${spot.y.toStringAsFixed(1)} ${parameterUnit(p)}',
+                        TextStyle(
+                          color: color,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'monospace',
+                        ),
+                        children: diffText.isEmpty
+                            ? null
+                            : [
+                                TextSpan(
+                                  text: diffText,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ],
+                      );
+                    }
                   }).toList(),
                 ),
               );
