@@ -15,7 +15,7 @@ import 'secrets.dart';
 //  SENSOR TYPE
 // ════════════════════════════════════════════════════════════
 
-enum SensorType { cp, sw, wj, wm, jw }
+enum SensorType { cp, sw, wj, wm, jw, acp }
 
 String sensorTypeLabel(SensorType t) {
   switch (t) {
@@ -29,6 +29,8 @@ String sensorTypeLabel(SensorType t) {
       return 'WM';
     case SensorType.jw:
       return 'JW';
+    case SensorType.acp:
+      return 'ACP';
   }
 }
 
@@ -519,6 +521,12 @@ String buildApiUrl({
     case SensorType.jw:
       return 'https://5x7thxo9uk.execute-api.us-east-1.amazonaws.com/default/WS_WINDS_JIO_Logger_API'
           '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate';
+    case SensorType.acp:
+      final paddedDevice = deviceId.toString().padLeft(2, '0');
+      final acpStart = startDate.split('-').reversed.join('-');
+      final acpEnd = endDate.split('-').reversed.join('-');
+      return 'https://or0lazdry7.execute-api.us-east-1.amazonaws.com/default/Annam_CP01_Api_Function'
+          '?ANNAM_ID=ANNAM_CP$paddedDevice&startdate=$acpStart&enddate=$acpEnd&key=$kAcpApiKey';
   }
 }
 
@@ -548,6 +556,12 @@ String buildDownloadApiUrl({
     case SensorType.jw:
       return 'https://5x7thxo9uk.execute-api.us-east-1.amazonaws.com/default/WS_WINDS_JIO_Logger_API'
           '?deviceid=$deviceId&startdate=$startDate&enddate=$endDate&mode=download';
+    case SensorType.acp:
+      final paddedDevice = deviceId.toString().padLeft(2, '0');
+      final acpStart = startDate.split('-').reversed.join('-');
+      final acpEnd = endDate.split('-').reversed.join('-');
+      return 'https://or0lazdry7.execute-api.us-east-1.amazonaws.com/default/Annam_CP01_Api_Function'
+          '?ANNAM_ID=ANNAM_CP$paddedDevice&startdate=$acpStart&enddate=$acpEnd&mode=download&key=$kAcpApiKey';
   }
 }
 
@@ -1405,7 +1419,9 @@ class _ChartWidgetState extends State<_ChartWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final total = widget.isOverlayMode ? 1440.0 : (widget.totalMinutes < 1.0 ? 1.0 : widget.totalMinutes);
+    final total = widget.isOverlayMode
+        ? 1440.0
+        : (widget.totalMinutes < 1.0 ? 1.0 : widget.totalMinutes);
     final visible = total / _zoom;
     final maxPan = max(0.0, total - visible);
     final clampedPan = _pan.clamp(0.0, maxPan);
@@ -1810,7 +1826,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
         if (resp.statusCode != 200)
           throw Exception('${s.label} failed (HTTP ${resp.statusCode})');
         final body = json.decode(resp.body);
-        final items = body['items'] as List;
+        final items = body is List ? body : (body['items'] as List? ?? []);
         fetched.add(DeviceData(
           deviceId: s.deviceId,
           sensorType: s.sensorType,
@@ -1983,7 +1999,8 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
         final resp = await http.get(Uri.parse(sUrl));
         if (resp.statusCode != 200) throw Exception('${sensor.label} failed');
         final body = json.decode(resp.body);
-        final rawList = (body['items'] as List)
+        final itemsList = body is List ? body : (body['items'] as List? ?? []);
+        final rawList = itemsList
             .map((e) => WeatherData.fromJson(e as Map<String, dynamic>))
             .toList()
           ..sort((a, b) => a.timeStamp.compareTo(b.timeStamp));
@@ -2388,80 +2405,92 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                 if (_overlayDays) {
                   final Map<String, List<WeatherData>> groupedByDate = {};
                   for (final d in device.sortedData) {
-                    final dateStr = DateFormat('yyyy-MM-dd').format(d.timeStamp);
+                    final dateStr =
+                        DateFormat('yyyy-MM-dd').format(d.timeStamp);
                     groupedByDate.putIfAbsent(dateStr, () => []).add(d);
                   }
-                  
+
                   int dateIndex = 0;
                   for (final dateEntry in groupedByDate.entries) {
                     final dateStr = dateEntry.key;
                     final dailyData = dateEntry.value;
-                    
+
                     final spots = <FlSpot>[];
                     for (final d in dailyData) {
-                      final minuteOfDay = d.timeStamp.hour * 60.0 + d.timeStamp.minute + (d.timeStamp.second / 60.0);
+                      final minuteOfDay = d.timeStamp.hour * 60.0 +
+                          d.timeStamp.minute +
+                          (d.timeStamp.second / 60.0);
                       spots.add(FlSpot(minuteOfDay, getParameterValue(d, p)));
                     }
-                    
-                    final color = _devicesData.length == 1 
-                        ? ColorPalette.getColor(dateIndex) 
-                        : device.color.withOpacity(1.0 - (dateIndex * 0.15).clamp(0.0, 0.8));
-                        
+
+                    final color = _devicesData.length == 1
+                        ? ColorPalette.getColor(dateIndex)
+                        : device.color.withOpacity(
+                            1.0 - (dateIndex * 0.15).clamp(0.0, 0.8));
+
                     lineBars.add(LineChartBarData(
                         spots: spots,
                         isCurved: true,
                         color: color,
                         barWidth: 2,
                         dotData: const FlDotData(show: false)));
-                        
+
                     final legendLabel = _devicesData.length == 1
                         ? DateFormat('dd MMM').format(DateTime.parse(dateStr))
                         : '${device.label} - ${DateFormat('dd MMM').format(DateTime.parse(dateStr))}';
-                        
-                    legend.add(_ChartLegendItem(
-                        label: legendLabel, color: color));
-                        
+
+                    legend.add(
+                        _ChartLegendItem(label: legendLabel, color: color));
+
                     dateIndex++;
                   }
-                  
-                  if (_showCorrected && isCp39(device) && p == WeatherParameter.temperature) {
+
+                  if (_showCorrected &&
+                      isCp39(device) &&
+                      p == WeatherParameter.temperature) {
                     final Map<String, List<double>> groupedCorrByDate = {};
                     for (int i = 0; i < device.sortedData.length; i++) {
                       final d = device.sortedData[i];
-                      final dateStr = DateFormat('yyyy-MM-dd').format(d.timeStamp);
-                      groupedCorrByDate.putIfAbsent(dateStr, () => []).add(device.correctedTemperatures![i]);
+                      final dateStr =
+                          DateFormat('yyyy-MM-dd').format(d.timeStamp);
+                      groupedCorrByDate
+                          .putIfAbsent(dateStr, () => [])
+                          .add(device.correctedTemperatures![i]);
                     }
-                    
+
                     int cDateIndex = 0;
                     for (final dateEntry in groupedByDate.entries) {
-                       final dateStr = dateEntry.key;
-                       final dailyData = dateEntry.value;
-                       final dailyCorr = groupedCorrByDate[dateStr]!;
-                       
-                       final correctedSpots = <FlSpot>[];
-                       for (int i = 0; i < dailyData.length; i++) {
-                          final d = dailyData[i];
-                          final minuteOfDay = d.timeStamp.hour * 60.0 + d.timeStamp.minute + (d.timeStamp.second / 60.0);
-                          correctedSpots.add(FlSpot(minuteOfDay, dailyCorr[i]));
-                       }
-                       final cColor = _kCorrectedColor.withOpacity(1.0 - (cDateIndex * 0.15).clamp(0.0, 0.8));
-                       
-                       lineBars.add(LineChartBarData(
+                      final dateStr = dateEntry.key;
+                      final dailyData = dateEntry.value;
+                      final dailyCorr = groupedCorrByDate[dateStr]!;
+
+                      final correctedSpots = <FlSpot>[];
+                      for (int i = 0; i < dailyData.length; i++) {
+                        final d = dailyData[i];
+                        final minuteOfDay = d.timeStamp.hour * 60.0 +
+                            d.timeStamp.minute +
+                            (d.timeStamp.second / 60.0);
+                        correctedSpots.add(FlSpot(minuteOfDay, dailyCorr[i]));
+                      }
+                      final cColor = _kCorrectedColor.withOpacity(
+                          1.0 - (cDateIndex * 0.15).clamp(0.0, 0.8));
+
+                      lineBars.add(LineChartBarData(
                           spots: correctedSpots,
                           isCurved: true,
                           color: cColor,
                           barWidth: 2,
                           dashArray: [6, 3],
                           dotData: const FlDotData(show: false)));
-                          
-                       final legendLabel = _devicesData.length == 1
+
+                      final legendLabel = _devicesData.length == 1
                           ? 'CP 39 Corr - ${DateFormat('dd MMM').format(DateTime.parse(dateStr))}'
                           : 'CP 39 Corr - ${DateFormat('dd MMM').format(DateTime.parse(dateStr))}';
-                          
-                       legend.add(_ChartLegendItem(
+
+                      legend.add(_ChartLegendItem(
                           label: legendLabel, color: cColor, dashed: true));
-                          
-                       cDateIndex++;
+
+                      cDateIndex++;
                     }
                   }
                 } else {
@@ -2483,7 +2512,7 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                       dotData: const FlDotData(show: false)));
                   legend.add(_ChartLegendItem(
                       label: '${device.label} (raw)', color: device.color));
-  
+
                   // ── Corrected line for CP 39 + Temperature ───────────────
                   if (_showCorrected &&
                       isCp39(device) &&
@@ -2558,8 +2587,8 @@ class _SensorComparisonPageState extends State<SensorComparisonPage>
                               ],
                       );
                     } else {
-                      final t =
-                          globalMin.add(Duration(seconds: (spot.x * 60).round()));
+                      final t = globalMin
+                          .add(Duration(seconds: (spot.x * 60).round()));
                       return LineTooltipItem(
                         '${DateFormat('dd/MM HH:mm').format(t)}\n$deviceLabel: ${spot.y.toStringAsFixed(1)} ${parameterUnit(p)}',
                         TextStyle(
